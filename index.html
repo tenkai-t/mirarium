@@ -247,6 +247,23 @@ window.addEventListener("load", function(){
 <div class="savemsg">草原のキラキラ光るところまで歩くと、アイテムを見つけられます</div>
 </div>
 
+<div class="panel" id="customPanel">
+<h3>🌟 オリジナルキャラ</h3>
+<div id="customNone">
+<div class="savemsg">Museに作ってもらった「キャラパック」のファイルを読み込むと、あなたのキャラが仲間に加わります。</div>
+<button class="tab" id="importBtn">キャラパックを読み込む</button>
+</div>
+<div id="customInfo" style="display:none">
+<div class="foundline">なまえ：<b id="customName"></b></div>
+<div style="margin-top:6px">
+<button class="tab" id="reimportBtn">入れ替える</button>
+<button class="tab" id="deleteCustomBtn">削除する</button>
+</div>
+</div>
+<input type="file" id="importFile" accept=".json,application/json" style="display:none">
+<div class="savemsg" id="customMsg"></div>
+</div>
+
 <div class="note">
 <b>本実装のポイント（まるごとアニメーション方式）</b><br>
 ・キャラクターはパーツ分割をやめ、<b>1枚絵のまま</b>呼吸・跳ね移動・ジャンプ・睡眠の傾きで動きます。関節の切れ目は原理的に出ません。<br>
@@ -254,15 +271,17 @@ window.addEventListener("load", function(){
 ・まばたきは待機中に自動で入ります。着せ替えアイテムは体と一緒に動くため、頭の追従ズレも出ません。<br>
 ・家具の配置・キャラクターの位置・ランプの状態・着せ替えは、これまでと同じ保存キーで<b>自動保存</b>され、以前のレイアウトもそのまま引き継がれます。<br>
 ・<b>Phase 1-E「探索」</b>：星降る草原へ探検に行けます。地面をタップして歩き、キラキラ光る場所まで行くと「星のかけら」などのアイテムを発見。見つけた数は自動保存されます。<br>
-・<b>Phase 1-F「統合」</b>：タイトル画面から始まる1つのゲームに仕上げました。お部屋（Phase 1-D）・着せ替え（1-C）・探索（1-E）がすべてつながっています。
+・<b>Phase 1-F「統合」</b>：タイトル画面から始まる1つのゲームに仕上げました。お部屋（Phase 1-D）・着せ替え（1-C）・探索（1-E）がすべてつながっています。<br>
+・<b>オリジナルキャラ</b>：Museが作ったキャラパックを読み込むと、自分のキャラが4人目の仲間に加わります（着せ替えは固定3体のみ）。
 </div>
 <footer>MIRAVERSE ― ミラヴァース（まるごとアニメーション版）<br><button class="tab" id="toTitle">タイトル画面へ</button></footer>
 
 <script>
 /* ===== 着せ替え (Phase 1-C の保存を引き継ぎ) ===== */
 const OUTFIT_KEY = "miraverse_outfit_v1";
-const OUTFIT_DEFAULTS = { serena:{head:"tiara",face:""}, moko:{head:"",ear:"ribbon",neck:"",back:""}, dragon:{head:"crown",neck:""} };
+const OUTFIT_DEFAULTS = { serena:{head:"tiara",face:""}, moko:{head:"",ear:"ribbon",neck:"",back:""}, dragon:{head:"crown",neck:""}, custom:{} };
 const SLOTS = {
+ custom:[],
  serena:[["head","あたま",[["","なし"],["tiara","星のティアラ"],["wreath","花かんむり"],["beret","ベレー帽"],["hat","探検帽"]]],
          ["face","かお",[["","なし"],["glasses","丸めがね"]]]],
  moko:[["head","あたま",[["","なし"],["wreath","花かんむり"],["hat","探検帽"]]],
@@ -292,6 +311,11 @@ function renderOutfitPanel(){
   document.getElementById("outfitCharName").textContent = NAMES[char];
   const box = document.getElementById("outfitSlots");
   box.innerHTML = "";
+  if(!SLOTS[char] || !SLOTS[char].length){
+    const d = document.createElement("div"); d.className = "savemsg";
+    d.textContent = "この子の着せ替えアイテムは ありません";
+    box.appendChild(d); return;
+  }
   SLOTS[char].forEach(([slot, label, items])=>{
     const row = document.createElement("div"); row.className = "slotrow";
     const nm = document.createElement("div"); nm.className = "slotname"; nm.textContent = label;
@@ -316,7 +340,7 @@ function renderOutfitPanel(){
 /* ===== お部屋の状態 ===== */
 const ROOM_KEY = "miraverse_room_v1";
 const FURN_DEFAULTS = { bed:{x:19,b:7.5}, shelf:{x:43,b:9.5}, chair:{x:82,b:7.5}, lamp:{x:93.5,b:8.5}, plant:{x:31,b:4}, table:{x:60,b:3.5} };
-const CHAR_DEFAULTS = { serena:{x:51,b:2.6}, moko:{x:73,b:2.4}, dragon:{x:30,b:2.4} };
+const CHAR_DEFAULTS = { serena:{x:51,b:2.6}, moko:{x:73,b:2.4}, dragon:{x:30,b:2.4}, custom:{x:40,b:2.0} };
 let roomData = { furn: JSON.parse(JSON.stringify(FURN_DEFAULTS)), chars: JSON.parse(JSON.stringify(CHAR_DEFAULTS)), night:false };
 try{
   const s = localStorage.getItem(ROOM_KEY);
@@ -336,7 +360,9 @@ function placeFurn(id){
 }
 function placeChar(char, store){
   const w = document.querySelector('.walker[data-char="'+char+'"]');
+  if(!w) return;
   const p = (store || roomData.chars)[char];
+  if(!p) return;
   w.style.left = p.x+"%"; w.style.bottom = p.b+"%"; w.style.zIndex = zFor(p.b);
 }
 function placeAll(){ for(const id in roomData.furn) placeFurn(id); for(const c in roomData.chars) placeChar(c); room.classList.toggle("night", roomData.night); }
@@ -486,7 +512,7 @@ document.getElementById("resetBtn").addEventListener("click", ()=>{
 /* ===== 探索 (Phase 1-E) ===== */
 const field = document.getElementById("field");
 const EXPLORE_KEY = "miraverse_explore_v1";
-const EXPLORE_CHAR_DEFAULTS = { serena:{x:24,b:3}, moko:{x:50,b:2.2}, dragon:{x:74,b:3} };
+const EXPLORE_CHAR_DEFAULTS = { serena:{x:24,b:3}, moko:{x:50,b:2.2}, dragon:{x:74,b:3}, custom:{x:62,b:6} };
 let explore = { chars: JSON.parse(JSON.stringify(EXPLORE_CHAR_DEFAULTS)), items:{star:0, moon:0, rainbow:0}, total:0 };
 try{
   const s = localStorage.getItem(EXPLORE_KEY);
@@ -506,7 +532,7 @@ function switchView(v){
   if(view === v) return;
   view = v;
   document.querySelectorAll("[data-view]").forEach(t=>t.classList.toggle("on", t.dataset.view===v));
-  ["serena","moko","dragon"].forEach(c=>{ clearTimeout(timers[c]); setState(c, "idle"); });
+  document.querySelectorAll(".walker").forEach(w=>{ const c = w.dataset.char; clearTimeout(timers[c]); setState(c, "idle"); });
   const stage = (v === "room") ? room : field;
   document.querySelectorAll(".walker").forEach(w=>{ w.style.transition = "none"; stage.appendChild(w); });
   room.classList.toggle("off", v !== "room");
@@ -586,6 +612,80 @@ document.getElementById("toTitle").addEventListener("click", ()=>{
   requestAnimationFrame(()=>titleScreen.classList.remove("hide"));
   window.scrollTo({ top:0, behavior:"smooth" });
 });
+/* ===== オリジナルキャラ（キャラパック） ===== */
+const CUSTOM_KEY = "miraverse_custom_v1";
+let customPack = null;
+try{ const s = localStorage.getItem(CUSTOM_KEY); if(s) customPack = JSON.parse(s); }catch(e){ customPack = null; }
+function validPack(p){ return !!(p && p.app === "miraverse-charpack" && p.name && p.images && p.images.normal && p.images.closed && p.images.happy); }
+function customMsg(t){ document.getElementById("customMsg").textContent = t; }
+function buildCustomWalker(){
+  const w = document.createElement("div");
+  w.className = "walker"; w.dataset.char = "custom";
+  w.innerHTML = '<div class="flip"><div class="stagebox" data-state="idle">'
+    + '<div class="char" data-char="custom" style="aspect-ratio:' + (customPack.w || 620) + '/' + (customPack.h || 760) + '">'
+    + '<img src="' + customPack.images.normal + '" alt="">'
+    + '<img class="var v-closed" src="' + customPack.images.closed + '" alt="">'
+    + '<img class="var v-happy" src="' + customPack.images.happy + '" alt="">'
+    + '</div><div class="shadow"></div>'
+    + '<div class="fx"><span style="left:16%;top:20%">\u2665</span><span style="left:70%;top:12%">\u2665</span><span style="left:44%;top:6%">\u2665</span></div>'
+    + '<div class="zzz">Z z</div></div></div><div class="ring"></div><div class="bubble"></div>';
+  w.addEventListener("pointerdown", e=>{ e.stopPropagation(); });
+  w.addEventListener("click", e=>{ e.stopPropagation(); selectChar("custom"); });
+  ((view === "room") ? room : field).appendChild(w);
+  const btn = document.createElement("button");
+  btn.className = "tab"; btn.dataset.sel = "custom"; btn.textContent = customPack.name;
+  btn.addEventListener("click", ()=>selectChar("custom"));
+  document.getElementById("resetBtn").before(btn);
+  placeChar("custom", (view === "room") ? roomData.chars : explore.chars);
+  startBlink("custom");
+}
+function removeCustomWalker(){
+  const w = document.querySelector('.walker[data-char="custom"]');
+  if(w) w.remove();
+  const b = document.querySelector('[data-sel="custom"]');
+  if(b) b.remove();
+}
+function refreshCustomPanel(){
+  const has = !!customPack;
+  document.getElementById("customNone").style.display = has ? "none" : "";
+  document.getElementById("customInfo").style.display = has ? "" : "none";
+  if(has) document.getElementById("customName").textContent = customPack.name;
+}
+function importPack(p){
+  if(!validPack(p)){ customMsg("キャラパックの形式がちがうようです"); return; }
+  customPack = p;
+  try{ localStorage.setItem(CUSTOM_KEY, JSON.stringify(p)); }
+  catch(e){ customMsg("保存できませんでした（容量オーバーかもしれません）"); customPack = null; refreshCustomPanel(); return; }
+  NAMES.custom = p.name;
+  removeCustomWalker();
+  buildCustomWalker();
+  refreshCustomPanel();
+  customMsg("「" + p.name + "」が仲間に加わりました！");
+  selectChar("custom");
+}
+const importFile = document.getElementById("importFile");
+document.getElementById("importBtn").addEventListener("click", ()=>importFile.click());
+document.getElementById("reimportBtn").addEventListener("click", ()=>importFile.click());
+importFile.addEventListener("change", ()=>{
+  const f = importFile.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = ()=>{ try{ importPack(JSON.parse(r.result)); }catch(e){ customMsg("ファイルを読み込めませんでした"); } importFile.value = ""; };
+  r.readAsText(f);
+});
+document.getElementById("deleteCustomBtn").addEventListener("click", ()=>{
+  if(!customPack) return;
+  if(!confirm("「" + customPack.name + "」を削除しますか？")) return;
+  customPack = null;
+  try{ localStorage.removeItem(CUSTOM_KEY); }catch(e){}
+  removeCustomWalker();
+  if(selected === "custom") selectChar("serena");
+  refreshCustomPanel();
+  customMsg("削除しました");
+});
+if(customPack && validPack(customPack)){ NAMES.custom = customPack.name; buildCustomWalker(); }
+else customPack = null;
+refreshCustomPanel();
+
 applyOutfits();
 placeAll();
 selectChar("serena");
