@@ -303,16 +303,10 @@ window.addEventListener("load", function(){
 </div>
 <hr style="border:none;border-top:1.5px dashed #ddd5bd;margin:12px 0">
 <div id="customNone">
-<div class="savemsg">Museに作ってもらった「キャラパック」のファイルを読み込むと、あなたのキャラが仲間に加わります。</div>
+<div class="savemsg">Museに作ってもらった「キャラパック」のファイルを読み込むと、あなたのキャラが仲間に加わります（最大3体まで）。</div>
+</div>
+<div id="customList"></div>
 <button class="tab" id="importBtn">キャラパックを読み込む</button>
-</div>
-<div id="customInfo" style="display:none">
-<div class="foundline">なまえ：<b id="customName"></b></div>
-<div style="margin-top:6px">
-<button class="tab" id="reimportBtn">入れ替える</button>
-<button class="tab" id="deleteCustomBtn">削除する</button>
-</div>
-</div>
 <input type="file" id="importFile" accept=".json,application/json" style="display:none">
 <div class="savemsg" id="customMsg"></div>
 </div>
@@ -325,7 +319,7 @@ window.addEventListener("load", function(){
 ・家具の配置・キャラクターの位置・ランプの状態・着せ替えは、これまでと同じ保存キーで<b>自動保存</b>され、以前のレイアウトもそのまま引き継がれます。<br>
 ・<b>Phase 1-E「探索」</b>：星降る草原へ探検に行けます。地面をタップして歩き、キラキラ光る場所まで行くと「星のかけら」などのアイテムを発見。見つけた数は自動保存されます。<br>
 ・<b>Phase 1-F「統合」</b>：タイトル画面から始まる1つのゲームに仕上げました。お部屋（Phase 1-D）・着せ替え（1-C）・探索（1-E）がすべてつながっています。<br>
-・<b>オリジナルキャラ</b>：Museが作ったキャラパックを読み込むと、自分のキャラが4人目の仲間に加わります（着せ替えは固定3体のみ）。<br>
+・<b>オリジナルキャラ</b>：Museが作ったキャラパックを読み込むと、自分のキャラが仲間に加わります（着せ替えは固定3体のみ）。最大3体まで登録でき、みんなで一緒に過ごせます。<br>
 ・<b>Phase 2-A「通常姿とプロフィール」</b>：「📖 ずかん」ボタンで、選択中のキャラの通常姿イラストとプロフィールが見られます。前後のキャラへも切り替えられます。<br>
 ・<b>Phase 2-B「モーションと反応」</b>：キャラをタップすると驚いて喜びます。歩くときは進む向きに少し傾き、着地で軽く沈みます。仲間の近くに着くと向き合って挨拶し、待っている間も時々小さく動いたりつぶやいたりします。<br>
 ・<b>Phase 2-C「着せ替えの拡張」</b>：装備中のアイテムは「いろ」で色ちがいに変えられます（元のいろ／あかみ／ひだまり／もり／そら／ゆめ）。いまの格好は「コーデ1〜3」に保存して、いつでも呼び出せます（色も一緒に保存されます）。<br>
@@ -469,13 +463,14 @@ function renderOutfitPanel(){
 /* ===== お部屋の状態 ===== */
 const ROOM_KEY = "miraverse_room_v1";
 const FURN_DEFAULTS = { bed:{x:19,b:7.5}, shelf:{x:43,b:9.5}, chair:{x:82,b:7.5}, lamp:{x:93.5,b:8.5}, plant:{x:31,b:4}, table:{x:60,b:3.5} };
-const CHAR_DEFAULTS = { serena:{x:51,b:2.6}, moko:{x:73,b:2.4}, dragon:{x:30,b:2.4}, custom:{x:40,b:2.0} };
+const CHAR_DEFAULTS = { serena:{x:51,b:2.6}, moko:{x:73,b:2.4}, dragon:{x:30,b:2.4}, custom1:{x:40,b:2.0}, custom2:{x:20,b:6.0}, custom3:{x:86,b:5.2} };
 let roomData = { furn: JSON.parse(JSON.stringify(FURN_DEFAULTS)), chars: JSON.parse(JSON.stringify(CHAR_DEFAULTS)), night:false };
 try{
   const s = localStorage.getItem(ROOM_KEY);
   if(s){ const p = JSON.parse(s);
     for(const k in roomData.furn){ if(p.furn && p.furn[k]) roomData.furn[k] = p.furn[k]; }
     for(const k in roomData.chars){ if(p.chars && p.chars[k]) roomData.chars[k] = p.chars[k]; }
+    if(p.chars && p.chars.custom && !p.chars.custom1) roomData.chars.custom1 = p.chars.custom;
     roomData.night = !!p.night;
   }
 }catch(e){}
@@ -727,12 +722,13 @@ document.getElementById("resetBtn").addEventListener("click", ()=>{
 /* ===== 探索 (Phase 1-E) ===== */
 const field = document.getElementById("field");
 const EXPLORE_KEY = "miraverse_explore_v1";
-const EXPLORE_CHAR_DEFAULTS = { serena:{x:24,b:3}, moko:{x:50,b:2.2}, dragon:{x:74,b:3}, custom:{x:62,b:6} };
+const EXPLORE_CHAR_DEFAULTS = { serena:{x:24,b:3}, moko:{x:50,b:2.2}, dragon:{x:74,b:3}, custom1:{x:62,b:6}, custom2:{x:44,b:9.5}, custom3:{x:80,b:3.2} };
 let explore = { chars: JSON.parse(JSON.stringify(EXPLORE_CHAR_DEFAULTS)), items:{star:0, moon:0, rainbow:0}, total:0 };
 try{
   const s = localStorage.getItem(EXPLORE_KEY);
   if(s){ const p = JSON.parse(s);
     if(p.chars) for(const k in explore.chars){ if(p.chars[k]) explore.chars[k] = p.chars[k]; }
+    if(p.chars && p.chars.custom && !p.chars.custom1) explore.chars.custom1 = p.chars.custom;
     if(p.items) Object.assign(explore.items, p.items);
     explore.total = p.total || 0;
   }
@@ -829,107 +825,112 @@ document.getElementById("toTitle").addEventListener("click", ()=>{
 });
 /* ===== オリジナルキャラ（キャラパック） ===== */
 const CUSTOM_KEY = "miraverse_custom_v1";
-let customPack = null;
-try{ const s = localStorage.getItem(CUSTOM_KEY); if(s) customPack = JSON.parse(s); }catch(e){ customPack = null; }
+const CUSTOM_MAX = 3;
 function validPack(p){ return !!(p && p.app === "miraverse-charpack" && p.name && p.images && p.images.normal && p.images.closed && p.images.happy); }
 function customMsg(t){ document.getElementById("customMsg").textContent = t; }
-function buildCustomWalker(){
+function cid(i){ return "custom" + (i + 1); }
+function packIndexOf(char){ const m = /^custom(\d)$/.exec(char || ""); return m ? (+m[1] - 1) : -1; }
+let customPacks = [];
+try{
+  const s = localStorage.getItem(CUSTOM_KEY);
+  if(s){ const p = JSON.parse(s);
+    if(Array.isArray(p)) customPacks = p.filter(validPack).slice(0, CUSTOM_MAX);
+    else if(validPack(p)) customPacks = [p];
+  }
+}catch(e){ customPacks = []; }
+function saveCustomPacks(){ try{ localStorage.setItem(CUSTOM_KEY, JSON.stringify(customPacks)); return true; }catch(e){ return false; } }
+function buildCustomWalker(i){
+  const pack = customPacks[i]; const char = cid(i);
   const w = document.createElement("div");
-  w.className = "walker"; w.dataset.char = "custom";
+  w.className = "walker"; w.dataset.char = char;
   w.innerHTML = '<div class="flip"><div class="stagebox" data-state="idle">'
-    + '<div class="char" data-char="custom" style="aspect-ratio:' + (customPack.w || 620) + '/' + (customPack.h || 760) + '">'
-    + '<img src="' + customPack.images.normal + '" alt="">'
-    + '<img class="var v-closed" src="' + customPack.images.closed + '" alt="">'
-    + '<img class="var v-happy" src="' + customPack.images.happy + '" alt="">'
+    + '<div class="char" data-char="' + char + '" style="aspect-ratio:' + (pack.w || 620) + '/' + (pack.h || 760) + '">'
+    + '<img src="' + pack.images.normal + '" alt="">'
+    + '<img class="var v-closed" src="' + pack.images.closed + '" alt="">'
+    + '<img class="var v-happy" src="' + pack.images.happy + '" alt="">'
     + '</div><div class="shadow"></div>'
     + '<div class="fx"><span style="left:16%;top:20%">\u2665</span><span style="left:70%;top:12%">\u2665</span><span style="left:44%;top:6%">\u2665</span></div>'
     + '<div class="zzz">Z z</div></div></div><div class="ring"></div><div class="bubble"></div>';
   w.addEventListener("pointerdown", e=>{ e.stopPropagation(); });
-  w.addEventListener("click", e=>{ e.stopPropagation(); selectChar("custom"); petReact("custom"); });
+  w.addEventListener("click", e=>{ e.stopPropagation(); selectChar(char); petReact(char); });
   ((view === "room") ? room : field).appendChild(w);
   const btn = document.createElement("button");
-  btn.className = "tab"; btn.dataset.sel = "custom"; btn.textContent = customPack.name;
-  btn.addEventListener("click", ()=>selectChar("custom"));
+  btn.className = "tab"; btn.dataset.sel = char; btn.textContent = pack.name;
+  btn.addEventListener("click", ()=>selectChar(char));
   document.getElementById("resetBtn").before(btn);
-  placeChar("custom", (view === "room") ? roomData.chars : explore.chars);
-  startBlink("custom");
+  placeChar(char, (view === "room") ? roomData.chars : explore.chars);
+  startBlink(char);
 }
-function removeCustomWalker(){
-  const w = document.querySelector('.walker[data-char="custom"]');
-  if(w) w.remove();
-  const b = document.querySelector('[data-sel="custom"]');
-  if(b) b.remove();
+function buildAllCustomWalkers(){
+  document.querySelectorAll('.walker[data-char^="custom"]').forEach(w=>w.remove());
+  document.querySelectorAll('[data-sel^="custom"]').forEach(b=>b.remove());
+  customPacks.forEach((p, i)=>{ NAMES[cid(i)] = p.name; buildCustomWalker(i); });
 }
 function refreshCustomPanel(){
-  const has = !!customPack;
-  document.getElementById("customNone").style.display = has ? "none" : "";
-  document.getElementById("customInfo").style.display = has ? "" : "none";
-  if(has) document.getElementById("customName").textContent = customPack.name;
+  const list = document.getElementById("customList");
+  list.innerHTML = "";
+  customPacks.forEach((p, i)=>{
+    const wrap = document.createElement("div"); wrap.style.marginBottom = "10px";
+    const row = document.createElement("div"); row.className = "foundline";
+    row.appendChild(document.createTextNode("なまえ："));
+    const b = document.createElement("b"); b.textContent = p.name;
+    row.appendChild(b);
+    const btns = document.createElement("div"); btns.style.marginTop = "6px";
+    const rb = document.createElement("button"); rb.className = "tab"; rb.textContent = "入れ替える";
+    rb.addEventListener("click", ()=>{ pendingReplace = i; importFile.click(); });
+    const db = document.createElement("button"); db.className = "tab"; db.textContent = "削除する";
+    db.addEventListener("click", ()=>deleteCustom(i));
+    btns.appendChild(rb); btns.appendChild(db);
+    wrap.appendChild(row); wrap.appendChild(btns);
+    list.appendChild(wrap);
+  });
+  const left = CUSTOM_MAX - customPacks.length;
+  const ib = document.getElementById("importBtn");
+  ib.textContent = left > 0 ? ("キャラパックを読み込む（あと" + left + "体）") : "登録は3体までです";
+  ib.disabled = left <= 0;
+  document.getElementById("customNone").style.display = customPacks.length ? "none" : "";
 }
+let pendingReplace = -1;
 function importPack(p){
-  if(!validPack(p)){ customMsg("キャラパックの形式がちがうようです"); return; }
-  customPack = p;
-  try{ localStorage.setItem(CUSTOM_KEY, JSON.stringify(p)); }
-  catch(e){ customMsg("保存できませんでした（容量オーバーかもしれません）"); customPack = null; refreshCustomPanel(); return; }
-  NAMES.custom = p.name;
-  removeCustomWalker();
-  buildCustomWalker();
+  if(!validPack(p)){ customMsg("キャラパックの形式がちがうようです"); pendingReplace = -1; return; }
+  const isReplace = pendingReplace >= 0 && pendingReplace < customPacks.length;
+  if(!isReplace && customPacks.length >= CUSTOM_MAX){ customMsg("登録は3体までです。どれかを削除してください"); return; }
+  const backup = customPacks.slice();
+  if(isReplace) customPacks[pendingReplace] = p; else customPacks.push(p);
+  if(!saveCustomPacks()){ customPacks = backup; customMsg("保存できませんでした（容量オーバーかもしれません）"); refreshCustomPanel(); return; }
+  const i = isReplace ? pendingReplace : customPacks.length - 1;
+  pendingReplace = -1;
+  buildAllCustomWalkers();
   refreshCustomPanel();
   customMsg("「" + p.name + "」が仲間に加わりました！");
-  selectChar("custom");
+  selectChar(cid(i));
+}
+function deleteCustom(i){
+  const p = customPacks[i]; if(!p) return;
+  if(!confirm("「" + p.name + "」を削除しますか？")) return;
+  const wasSelected = selected;
+  customPacks.splice(i, 1);
+  saveCustomPacks();
+  [roomData.chars, explore.chars].forEach(store=>{
+    for(let j = i; j < customPacks.length; j++){ if(store[cid(j + 1)]) store[cid(j)] = store[cid(j + 1)]; }
+    delete store[cid(customPacks.length)];
+  });
+  saveRoom(); saveExplore();
+  delete NAMES[cid(customPacks.length)];
+  buildAllCustomWalkers();
+  refreshCustomPanel();
+  if(packIndexOf(wasSelected) >= customPacks.length) selectChar("serena"); else selectChar(wasSelected);
+  customMsg("削除しました");
 }
 const importFile = document.getElementById("importFile");
-document.getElementById("importBtn").addEventListener("click", ()=>importFile.click());
-document.getElementById("reimportBtn").addEventListener("click", ()=>importFile.click());
+document.getElementById("importBtn").addEventListener("click", ()=>{ pendingReplace = -1; importFile.click(); });
 importFile.addEventListener("change", ()=>{
   const f = importFile.files[0]; if(!f) return;
   const r = new FileReader();
-  r.onload = ()=>{ try{ importPack(JSON.parse(r.result)); }catch(e){ customMsg("ファイルを読み込めませんでした"); } importFile.value = ""; };
+  r.onload = ()=>{ try{ importPack(JSON.parse(r.result)); }catch(e){ customMsg("ファイルを読み込めませんでした"); pendingReplace = -1; } importFile.value = ""; };
   r.readAsText(f);
 });
-document.getElementById("deleteCustomBtn").addEventListener("click", ()=>{
-  if(!customPack) return;
-  if(!confirm("「" + customPack.name + "」を削除しますか？")) return;
-  customPack = null;
-  try{ localStorage.removeItem(CUSTOM_KEY); }catch(e){}
-  removeCustomWalker();
-  if(selected === "custom") selectChar("serena");
-  refreshCustomPanel();
-  customMsg("削除しました");
-});
-/* キャラ作りフォーム */
-let cfOmakaseOn = false;
-const cfOmakaseBtn = document.getElementById("cfOmakase");
-cfOmakaseBtn.addEventListener("click", ()=>{
-  cfOmakaseOn = !cfOmakaseOn;
-  cfOmakaseBtn.textContent = "ぜんぶ おまかせ：" + (cfOmakaseOn ? "ON" : "OFF");
-  cfOmakaseBtn.classList.toggle("on", cfOmakaseOn);
-  ["cfName","cfType","cfLook","cfPerson"].forEach(id=>document.getElementById(id).classList.toggle("cf-off", cfOmakaseOn));
-});
-document.getElementById("cfMake").addEventListener("click", ()=>{
-  let text;
-  if(cfOmakaseOn){
-    text = "【ミラリウム キャラ作成依頼】\n名前・タイプ・見た目・性格、すべておまかせで作ってください。\nまずデザイン案を見せてください。";
-  } else {
-    const nm = document.getElementById("cfName").value.trim();
-    const tp = document.getElementById("cfType").value;
-    const lk = document.getElementById("cfLook").value.trim();
-    const ps = document.getElementById("cfPerson").value.trim();
-    text = "【ミラリウム キャラ作成依頼】\n名前：" + (nm || "おまかせ") + "\nタイプ：" + tp + "\n見た目：" + (lk || "おまかせ") + "\n性格：" + (ps || "おまかせ") + "\nまずデザイン案を見せてください。";
-  }
-  document.getElementById("cfText").value = text;
-  document.getElementById("cfOut").style.display = "";
-  document.getElementById("cfMsg").textContent = "依頼文ができました。「依頼文をコピーする」を押してください。";
-});
-document.getElementById("cfCopy").addEventListener("click", ()=>{
-  const t = document.getElementById("cfText");
-  const done = ()=>{ document.getElementById("cfMsg").textContent = "コピーしました。チャットに貼って送ってください。"; };
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(t.value).then(done).catch(()=>{ t.select(); try{ document.execCommand("copy"); }catch(e){} done(); });
-  } else { t.select(); try{ document.execCommand("copy"); }catch(e){} done(); }
-});
-if(customPack && validPack(customPack)){ NAMES.custom = customPack.name; buildCustomWalker(); }
-else customPack = null;
+buildAllCustomWalkers();
 refreshCustomPanel();
 
 /* ===== ずかん（プロフィール） ===== */
@@ -944,11 +945,11 @@ const PROFILES = {
 let profChar = "serena";
 function profOrder(){
   const o = ["serena", "moko", "dragon"];
-  if(customPack) o.push("custom");
+  customPacks.forEach((p, i)=>o.push(cid(i)));
   return o;
 }
 function outfitSummary(char){
-  if(char === "custom") return "";
+  if(packIndexOf(char) >= 0) return "";
   const parts = [];
   (SLOTS[char] || []).forEach(([slot, label, items])=>{
     const cur = outfit[char][slot];
@@ -958,8 +959,8 @@ function outfitSummary(char){
 }
 function openProfile(char){
   profChar = char;
-  const isCustom = (char === "custom");
-  document.getElementById("profImg").src = isCustom ? customPack.images.normal : document.getElementById("profSrc_" + char).src;
+  const ci = packIndexOf(char); const isCustom = (ci >= 0 && !!customPacks[ci]);
+  document.getElementById("profImg").src = isCustom ? customPacks[ci].images.normal : document.getElementById("profSrc_" + char).src;
   document.getElementById("profName").textContent = NAMES[char];
   document.getElementById("profChips").innerHTML = isCustom
     ? "<span>オリジナルキャラ</span>"
