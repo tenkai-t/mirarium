@@ -58,6 +58,10 @@ header p{margin-top:6px;font-size:13px;color:#6a6390}
 .zzz{position:absolute;right:8%;top:0;font-weight:900;color:#7d8fc4;opacity:0;font-size:17px}
 [data-state="sleep"] .zzz{animation:zfloat 2.2s ease-in-out infinite}
 @keyframes zfloat{0%{opacity:0;transform:translateY(6px)}30%{opacity:1}100%{opacity:0;transform:translateY(-16px)}}
+.stagebox.pet .char{animation:surprise .5s ease}
+@keyframes surprise{0%{transform:scaleY(1)}25%{transform:scaleY(.86) translateY(2%)}55%{transform:scaleY(1.05) translateY(-6%)}100%{transform:scaleY(1)}}
+.stagebox.hop1 .char{animation:minihop .45s ease}
+@keyframes minihop{0%,100%{transform:translateY(0)}45%{transform:translateY(-5.5%)}}
 .ring{position:absolute;left:50%;bottom:-10px;transform:translateX(-50%);width:82%;height:13px;border-radius:50%;border:2.5px solid var(--gold);background:rgba(217,164,65,.12);opacity:0;transition:opacity .2s;pointer-events:none}
 .walker.sel .ring{opacity:1}
 .bubble{position:absolute;left:50%;bottom:103%;transform:translateX(-50%) scale(.8);background:#fff;border:2px solid #f0e3bb;border-radius:14px;padding:5px 11px;font-size:12.5px;font-weight:700;color:var(--indigo);white-space:nowrap;opacity:0;transition:.25s;z-index:650;pointer-events:none;box-shadow:0 4px 12px rgba(43,58,103,.15)}
@@ -320,7 +324,8 @@ window.addEventListener("load", function(){
 ・<b>Phase 1-E「探索」</b>：星降る草原へ探検に行けます。地面をタップして歩き、キラキラ光る場所まで行くと「星のかけら」などのアイテムを発見。見つけた数は自動保存されます。<br>
 ・<b>Phase 1-F「統合」</b>：タイトル画面から始まる1つのゲームに仕上げました。お部屋（Phase 1-D）・着せ替え（1-C）・探索（1-E）がすべてつながっています。<br>
 ・<b>オリジナルキャラ</b>：Museが作ったキャラパックを読み込むと、自分のキャラが4人目の仲間に加わります（着せ替えは固定3体のみ）。<br>
-・<b>Phase 2-A「通常姿とプロフィール」</b>：「📖 ずかん」ボタンで、選択中のキャラの通常姿イラストとプロフィールが見られます。前後のキャラへも切り替えられます。
+・<b>Phase 2-A「通常姿とプロフィール」</b>：「📖 ずかん」ボタンで、選択中のキャラの通常姿イラストとプロフィールが見られます。前後のキャラへも切り替えられます。<br>
+・<b>Phase 2-B「モーションと反応」</b>：キャラをタップすると驚いて喜びます。歩くときは進む向きに少し傾き、着地で軽く沈みます。仲間の近くに着くと向き合って挨拶し、待っている間も時々小さく動いたりつぶやいたりします。
 </div>
 <footer>MIRARIUM ― ミラリウム（まるごとアニメーション版）<br><button class="tab" id="toTitle">タイトル画面へ</button></footer>
 
@@ -448,13 +453,94 @@ function selectChar(char){
 document.querySelectorAll("[data-sel]").forEach(t=>t.addEventListener("click", ()=>selectChar(t.dataset.sel)));
 document.querySelectorAll(".walker").forEach(w=>{
   w.addEventListener("pointerdown", e=>{ e.stopPropagation(); });
-  w.addEventListener("click", e=>{ e.stopPropagation(); selectChar(w.dataset.char); });
+  w.addEventListener("click", e=>{ e.stopPropagation(); selectChar(w.dataset.char); petReact(w.dataset.char); });
 });
 function bubble(char, text, ms){
   const b = document.querySelector('.walker[data-char="'+char+'"] .bubble');
   b.textContent = text; b.classList.add("show");
   setTimeout(()=>b.classList.remove("show"), ms||2200);
 }
+/* ===== Phase 2-B: 反応・交流・自律行動 ===== */
+const reactSeq = {};
+function boxOf(char){ return document.querySelector('.walker[data-char="'+char+'"] .stagebox'); }
+function stateOf(char){ const b = boxOf(char); return b ? b.dataset.state : "idle"; }
+function petReact(char){
+  const st = stateOf(char);
+  if(st === "walk"){ bubble(char, "！", 700); return; }
+  if(st === "sleep"){ bubble(char, "むにゃ…", 1200); return; }
+  const box = boxOf(char);
+  const seq = (reactSeq[char] = (reactSeq[char] || 0) + 1);
+  box.classList.remove("pet"); void box.offsetWidth; box.classList.add("pet");
+  bubble(char, "！", 750);
+  setTimeout(()=>{ box.classList.remove("pet"); }, 520);
+  setTimeout(()=>{
+    if(reactSeq[char] !== seq || stateOf(char) === "walk" || stateOf(char) === "sleep") return;
+    setState(char, "joy");
+    setTimeout(()=>{ if(reactSeq[char] === seq && stateOf(char) === "joy") setState(char, "idle"); }, 1000);
+  }, 430);
+}
+const GREETINGS = ["こんにちは！", "やっほー！", "なかよし♪", "いっしょに あそぼ！"];
+const interactCD = {};
+function maybeInteract(char){
+  const store = (view === "room") ? roomData.chars : explore.chars;
+  const me = store[char]; if(!me) return;
+  for(const other in store){
+    if(other === char) continue;
+    const o = store[other]; if(!o) continue;
+    if(Math.abs(o.x - me.x) > 13 || Math.abs(o.b - me.b) > 6.5) continue;
+    if(stateOf(other) === "walk" || stateOf(other) === "sleep") continue;
+    const key = [char, other].sort().join("|");
+    const now = Date.now();
+    if(interactCD[key] && now - interactCD[key] < 45000) continue;
+    interactCD[key] = now;
+    const wMe = document.querySelector('.walker[data-char="'+char+'"]');
+    const wOt = document.querySelector('.walker[data-char="'+other+'"]');
+    const meLeft = me.x <= o.x;
+    wMe.querySelector(".flip").classList.toggle("flipx", !meLeft);
+    wOt.querySelector(".flip").classList.toggle("flipx", meLeft);
+    const seqM = (reactSeq[char] = (reactSeq[char] || 0) + 1);
+    const seqO = (reactSeq[other] = (reactSeq[other] || 0) + 1);
+    setState(char, "joy"); setState(other, "joy");
+    bubble(char, GREETINGS[Math.floor(Math.random()*GREETINGS.length)], 1700);
+    setTimeout(()=>{
+      if(reactSeq[char] === seqM && stateOf(char) === "joy") setState(char, "idle");
+      if(reactSeq[other] === seqO && stateOf(other) === "joy") setState(other, "idle");
+    }, 1250);
+    break;
+  }
+}
+const IDLE_LINES = {
+  serena: ["星が きれい…", "つぎは どこへ 行こう？", "ふふ♪"],
+  moko: ["くんくん…", "わくわく！", "おなか すいた…"],
+  dragon: ["空を 飛びたいな", "キラキラ…", "ふん、悪くない"],
+  custom: ["…♪", "きらきら…", "たのしい！"]
+};
+function startIdleLife(){
+  setInterval(()=>{
+    if(document.hidden) return;
+    const t = document.getElementById("titleScreen");
+    if(t && !t.classList.contains("hide")) return;
+    if(Math.random() > 0.55) return;
+    const store = (view === "room") ? roomData.chars : explore.chars;
+    const idle = Object.keys(store).filter(c => stateOf(c) === "idle" && document.querySelector('.walker[data-char="'+c+'"]'));
+    if(!idle.length) return;
+    const char = idle[Math.floor(Math.random()*idle.length)];
+    const box = boxOf(char);
+    const r = Math.random();
+    if(r < 0.4){
+      box.classList.remove("hop1"); void box.offsetWidth; box.classList.add("hop1");
+      setTimeout(()=>box.classList.remove("hop1"), 480);
+    } else if(r < 0.72){
+      const flip = document.querySelector('.walker[data-char="'+char+'"] .flip');
+      flip.classList.toggle("flipx");
+      setTimeout(()=>flip.classList.toggle("flipx"), 950);
+    } else {
+      const lines = IDLE_LINES[char] || IDLE_LINES.custom;
+      bubble(char, lines[Math.floor(Math.random()*lines.length)], 1500);
+    }
+  }, 6500);
+}
+
 function moveTo(char, x, b, done){
   const w = document.querySelector('.walker[data-char="'+char+'"]');
   const store = (view === "room") ? roomData.chars : explore.chars;
@@ -470,10 +556,15 @@ function moveTo(char, x, b, done){
   w.style.transition = "left "+dur+"ms linear, bottom "+dur+"ms linear";
   w.style.left = x+"%"; w.style.bottom = b+"%";
   setState(char, "walk");
+  const sbox = w.querySelector(".stagebox");
+  if(Math.abs(dx) > 3) sbox.style.transform = "rotate(3deg)";
   clearTimeout(timers[char]);
   timers[char] = setTimeout(()=>{
     setState(char, "idle");
+    sbox.style.transform = "";
+    if(sbox.animate) sbox.animate([{transform:"scaleY(.93)"},{transform:"scaleY(1)"}], {duration:230, easing:"ease-out"});
     if(view === "room") saveRoom(); else { saveExplore(); checkSpots(char); }
+    maybeInteract(char);
     if(done) done();
   }, dur+30);
 }
@@ -678,7 +769,7 @@ function buildCustomWalker(){
     + '<div class="fx"><span style="left:16%;top:20%">\u2665</span><span style="left:70%;top:12%">\u2665</span><span style="left:44%;top:6%">\u2665</span></div>'
     + '<div class="zzz">Z z</div></div></div><div class="ring"></div><div class="bubble"></div>';
   w.addEventListener("pointerdown", e=>{ e.stopPropagation(); });
-  w.addEventListener("click", e=>{ e.stopPropagation(); selectChar("custom"); });
+  w.addEventListener("click", e=>{ e.stopPropagation(); selectChar("custom"); petReact("custom"); });
   ((view === "room") ? room : field).appendChild(w);
   const btn = document.createElement("button");
   btn.className = "tab"; btn.dataset.sel = "custom"; btn.textContent = customPack.name;
@@ -816,6 +907,7 @@ document.getElementById("profOverlay").addEventListener("click", e=>{
   if(e.target.id === "profOverlay") document.getElementById("profOverlay").classList.remove("open");
 });
 
+startIdleLife();
 applyOutfits();
 placeAll();
 selectChar("serena");
