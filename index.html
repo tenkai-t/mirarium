@@ -303,7 +303,7 @@ window.addEventListener("load", function(){
 </div>
 <hr style="border:none;border-top:1.5px dashed #ddd5bd;margin:12px 0">
 <div id="customNone">
-<div class="savemsg">Museに作ってもらった「キャラパック」のファイルを読み込むと、あなたのキャラが仲間に加わります（最大3体まで）。</div>
+<div class="savemsg">Museに作ってもらった「キャラパック」のファイルを読み込むと、あなたのキャラが仲間に加わります（最大10体まで）。</div>
 </div>
 <div id="customList"></div>
 <button class="tab" id="importBtn">キャラパックを読み込む</button>
@@ -319,7 +319,7 @@ window.addEventListener("load", function(){
 ・家具の配置・キャラクターの位置・ランプの状態・着せ替えは、これまでと同じ保存キーで<b>自動保存</b>され、以前のレイアウトもそのまま引き継がれます。<br>
 ・<b>Phase 1-E「探索」</b>：星降る草原へ探検に行けます。地面をタップして歩き、キラキラ光る場所まで行くと「星のかけら」などのアイテムを発見。見つけた数は自動保存されます。<br>
 ・<b>Phase 1-F「統合」</b>：タイトル画面から始まる1つのゲームに仕上げました。お部屋（Phase 1-D）・着せ替え（1-C）・探索（1-E）がすべてつながっています。<br>
-・<b>オリジナルキャラ</b>：Museが作ったキャラパックを読み込むと、自分のキャラが仲間に加わります（着せ替えは固定3体のみ）。最大3体まで登録でき、みんなで一緒に過ごせます。<br>
+・<b>オリジナルキャラ</b>：Museが作ったキャラパックを読み込むと、自分のキャラが仲間に加わります（着せ替えは固定3体のみ）。最大10体まで登録でき、お部屋・探検では選んだ1人だけが表示されます（タブで切り替えて、その子と遊べます）。<br>
 ・<b>Phase 2-A「通常姿とプロフィール」</b>：「📖 ずかん」ボタンで、選択中のキャラの通常姿イラストとプロフィールが見られます。前後のキャラへも切り替えられます。<br>
 ・<b>Phase 2-B「モーションと反応」</b>：キャラをタップすると驚いて喜びます。歩くときは進む向きに少し傾き、着地で軽く沈みます。仲間の近くに着くと向き合って挨拶し、待っている間も時々小さく動いたりつぶやいたりします。<br>
 ・<b>Phase 2-C「着せ替えの拡張」</b>：装備中のアイテムは「いろ」で色ちがいに変えられます（元のいろ／あかみ／ひだまり／もり／そら／ゆめ）。いまの格好は「コーデ1〜3」に保存して、いつでも呼び出せます（色も一緒に保存されます）。<br>
@@ -485,8 +485,9 @@ function placeFurn(id){
 function placeChar(char, store){
   const w = document.querySelector('.walker[data-char="'+char+'"]');
   if(!w) return;
-  const p = (store || roomData.chars)[char];
-  if(!p) return;
+  const st = (store || roomData.chars);
+  let p = st[char];
+  if(!p){ p = defaultPos(char, st === explore.chars); st[char] = p; }
   w.style.left = p.x+"%"; w.style.bottom = p.b+"%"; w.style.zIndex = zFor(p.b);
 }
 function placeAll(){ for(const id in roomData.furn) placeFurn(id); for(const c in roomData.chars) placeChar(c); room.classList.toggle("night", roomData.night); }
@@ -515,10 +516,14 @@ function startBlink(char){
 /* ===== 選択と移動 ===== */
 let selected = "serena";
 const timers = {};
+function applyVisibility(){
+  document.querySelectorAll(".walker").forEach(w=>{ w.style.display = (w.dataset.char === selected) ? "" : "none"; });
+}
 function selectChar(char){
   selected = char;
   document.querySelectorAll(".walker").forEach(w=>w.classList.toggle("sel", w.dataset.char===char));
   document.querySelectorAll("[data-sel]").forEach(t=>t.classList.toggle("on", t.dataset.sel===char));
+  applyVisibility();
   renderOutfitPanel();
 }
 document.querySelectorAll("[data-sel]").forEach(t=>t.addEventListener("click", ()=>selectChar(t.dataset.sel)));
@@ -555,8 +560,12 @@ const interactCD = {};
 function maybeInteract(char){
   const store = (view === "room") ? roomData.chars : explore.chars;
   const me = store[char]; if(!me) return;
+  const myW = document.querySelector('.walker[data-char="' + char + '"]');
+  if(myW && myW.style.display === "none") return;
   for(const other in store){
     if(other === char) continue;
+    const oW = document.querySelector('.walker[data-char="' + other + '"]');
+    if(oW && oW.style.display === "none") continue;
     const o = store[other]; if(!o) continue;
     if(Math.abs(o.x - me.x) > 13 || Math.abs(o.b - me.b) > 6.5) continue;
     if(stateOf(other) === "walk" || stateOf(other) === "sleep") continue;
@@ -825,11 +834,19 @@ document.getElementById("toTitle").addEventListener("click", ()=>{
 });
 /* ===== オリジナルキャラ（キャラパック） ===== */
 const CUSTOM_KEY = "miraverse_custom_v1";
-const CUSTOM_MAX = 3;
+const CUSTOM_MAX = 10;
 function validPack(p){ return !!(p && p.app === "miraverse-charpack" && p.name && p.images && p.images.normal && p.images.closed && p.images.happy); }
 function customMsg(t){ document.getElementById("customMsg").textContent = t; }
 function cid(i){ return "custom" + (i + 1); }
-function packIndexOf(char){ const m = /^custom(\d)$/.exec(char || ""); return m ? (+m[1] - 1) : -1; }
+function defaultPos(char, fieldView){
+  const i = packIndexOf(char);
+  if(i >= 0){
+    if(fieldView) return { x: 15 + ((i * 19) % 68), b: 3 + (i % 3) * 3.2 };
+    return { x: 14 + ((i * 23) % 72), b: 2 + (i % 3) * 2.6 };
+  }
+  return fieldView ? {x:50, b:5} : {x:50, b:3};
+}
+function packIndexOf(char){ const m = /^custom(\d+)$/.exec(char || ""); return m ? (+m[1] - 1) : -1; }
 let customPacks = [];
 try{
   const s = localStorage.getItem(CUSTOM_KEY);
@@ -858,6 +875,8 @@ function buildCustomWalker(i){
   btn.className = "tab"; btn.dataset.sel = char; btn.textContent = pack.name;
   btn.addEventListener("click", ()=>selectChar(char));
   document.getElementById("resetBtn").before(btn);
+  if(!roomData.chars[char]) roomData.chars[char] = defaultPos(char, false);
+  if(!explore.chars[char]) explore.chars[char] = defaultPos(char, true);
   placeChar(char, (view === "room") ? roomData.chars : explore.chars);
   startBlink(char);
 }
@@ -886,7 +905,7 @@ function refreshCustomPanel(){
   });
   const left = CUSTOM_MAX - customPacks.length;
   const ib = document.getElementById("importBtn");
-  ib.textContent = left > 0 ? ("キャラパックを読み込む（あと" + left + "体）") : "登録は3体までです";
+  ib.textContent = left > 0 ? ("キャラパックを読み込む（あと" + left + "体）") : ("登録は" + CUSTOM_MAX + "体までです");
   ib.disabled = left <= 0;
   document.getElementById("customNone").style.display = customPacks.length ? "none" : "";
 }
@@ -894,7 +913,7 @@ let pendingReplace = -1;
 function importPack(p){
   if(!validPack(p)){ customMsg("キャラパックの形式がちがうようです"); pendingReplace = -1; return; }
   const isReplace = pendingReplace >= 0 && pendingReplace < customPacks.length;
-  if(!isReplace && customPacks.length >= CUSTOM_MAX){ customMsg("登録は3体までです。どれかを削除してください"); return; }
+  if(!isReplace && customPacks.length >= CUSTOM_MAX){ customMsg("登録は" + CUSTOM_MAX + "体までです。どれかを削除してください"); return; }
   const backup = customPacks.slice();
   if(isReplace) customPacks[pendingReplace] = p; else customPacks.push(p);
   if(!saveCustomPacks()){ customPacks = backup; customMsg("保存できませんでした（容量オーバーかもしれません）"); refreshCustomPanel(); return; }
