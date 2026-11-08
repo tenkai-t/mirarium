@@ -325,7 +325,8 @@ window.addEventListener("load", function(){
 ・<b>Phase 1-F「統合」</b>：タイトル画面から始まる1つのゲームに仕上げました。お部屋（Phase 1-D）・着せ替え（1-C）・探索（1-E）がすべてつながっています。<br>
 ・<b>オリジナルキャラ</b>：Museが作ったキャラパックを読み込むと、自分のキャラが4人目の仲間に加わります（着せ替えは固定3体のみ）。<br>
 ・<b>Phase 2-A「通常姿とプロフィール」</b>：「📖 ずかん」ボタンで、選択中のキャラの通常姿イラストとプロフィールが見られます。前後のキャラへも切り替えられます。<br>
-・<b>Phase 2-B「モーションと反応」</b>：キャラをタップすると驚いて喜びます。歩くときは進む向きに少し傾き、着地で軽く沈みます。仲間の近くに着くと向き合って挨拶し、待っている間も時々小さく動いたりつぶやいたりします。
+・<b>Phase 2-B「モーションと反応」</b>：キャラをタップすると驚いて喜びます。歩くときは進む向きに少し傾き、着地で軽く沈みます。仲間の近くに着くと向き合って挨拶し、待っている間も時々小さく動いたりつぶやいたりします。<br>
+・<b>Phase 2-C「着せ替えの拡張」</b>：装備中のアイテムは「いろ」で色ちがいに変えられます（元のいろ／あかみ／ひだまり／もり／そら／ゆめ）。いまの格好は「コーデ1〜3」に保存して、いつでも呼び出せます（色も一緒に保存されます）。
 </div>
 <footer>MIRARIUM ― ミラリウム（まるごとアニメーション版）<br><button class="tab" id="toTitle">タイトル画面へ</button></footer>
 
@@ -351,11 +352,44 @@ try{
   if(s){ const p = JSON.parse(s); for(const r in outfit){ if(p[r]) Object.assign(outfit[r], p[r]); } }
 }catch(e){}
 function saveOutfit(){ try{ localStorage.setItem(OUTFIT_KEY, JSON.stringify(outfit)); }catch(e){} }
+/* ===== Phase 2-C: 色ちがい・コーディネート保存 ===== */
+const COLOR_KEY = "miraverse_outfit_color_v1";
+const COLOR_VARIANTS = [[0,"元のいろ"],[-40,"あかみ"],[45,"ひだまり"],[130,"もり"],[215,"そら"],[285,"ゆめ"]];
+let outfitColor = { serena:{}, moko:{}, dragon:{}, custom:{} };
+try{
+  const s = localStorage.getItem(COLOR_KEY);
+  if(s){ const p = JSON.parse(s); for(const r in outfitColor){ if(p[r]) Object.assign(outfitColor[r], p[r]); } }
+}catch(e){}
+function saveColor(){ try{ localStorage.setItem(COLOR_KEY, JSON.stringify(outfitColor)); }catch(e){} }
+const COORD_KEY = "miraverse_coord_v1";
+let coords = { serena:{}, moko:{}, dragon:{} };
+try{
+  const s = localStorage.getItem(COORD_KEY);
+  if(s){ const p = JSON.parse(s); for(const r in coords){ if(p[r]) coords[r] = p[r]; } }
+}catch(e){}
+function saveCoords(){ try{ localStorage.setItem(COORD_KEY, JSON.stringify(coords)); }catch(e){} }
+function saveCoord(char, n){
+  coords[char][n] = { items: Object.assign({}, outfit[char]), colors: Object.assign({}, outfitColor[char] || {}) };
+  saveCoords(); renderOutfitPanel();
+  bubble(char, "コーデ" + n + "に ほぞんした！", 1600);
+}
+function applyCoord(char, n){
+  const c = coords[char][n];
+  const msg = document.getElementById("saveMsg");
+  if(!c){ msg.textContent = "コーデ" + n + "は まだ ほぞんされていません"; setTimeout(()=>{ msg.textContent = ""; }, 1800); return; }
+  outfit[char] = Object.assign({}, c.items);
+  outfitColor[char] = Object.assign({}, c.colors || {});
+  applyOutfits(); saveOutfit(); saveColor(); renderOutfitPanel();
+  bubble(char, "コーデ" + n + "に きがえた！", 1600);
+}
 function applyOutfits(){
   document.querySelectorAll(".walker").forEach(w=>{
     const char = w.dataset.char;
     w.querySelectorAll(".item").forEach(el=>{
-      el.style.display = (outfit[char][el.dataset.slot] === el.dataset.item) ? "block" : "none";
+      const on = (outfit[char][el.dataset.slot] === el.dataset.item);
+      el.style.display = on ? "block" : "none";
+      const deg = (outfitColor[char] && outfitColor[char][el.dataset.slot]) || 0;
+      el.style.filter = (on && deg) ? "hue-rotate(" + deg + "deg)" : "";
     });
   });
 }
@@ -388,7 +422,46 @@ function renderOutfitPanel(){
     });
     row.appendChild(nm); row.appendChild(chips);
     box.appendChild(row);
+    if(outfit[char][slot]){
+      const crow = document.createElement("div"); crow.className = "slotrow";
+      const cnm = document.createElement("div"); cnm.className = "slotname"; cnm.textContent = "いろ";
+      const cchips = document.createElement("div"); cchips.className = "chips";
+      const curDeg = (outfitColor[char] && outfitColor[char][slot]) || 0;
+      COLOR_VARIANTS.forEach(([deg, label])=>{
+        const b = document.createElement("button");
+        b.className = "chip" + (curDeg === deg ? " on" : "");
+        b.textContent = label;
+        b.addEventListener("click", ()=>{
+          outfitColor[char][slot] = deg;
+          applyOutfits(); saveColor(); renderOutfitPanel();
+          const msg = document.getElementById("saveMsg");
+          msg.textContent = "✓ コーディネートを保存しました";
+          setTimeout(()=>{ msg.textContent = ""; }, 1800);
+        });
+        cchips.appendChild(b);
+      });
+      crow.appendChild(cnm); crow.appendChild(cchips);
+      box.appendChild(crow);
+    }
   });
+  const sec = document.createElement("div"); sec.className = "slotrow";
+  const snm = document.createElement("div"); snm.className = "slotname"; snm.textContent = "コーデ";
+  const schips = document.createElement("div"); schips.className = "chips";
+  [1, 2, 3].forEach(n=>{
+    const has = !!coords[char][n];
+    const b = document.createElement("button");
+    b.className = "chip" + (has ? "" : " off");
+    b.textContent = "コーデ" + n + (has ? "" : "（空）");
+    b.addEventListener("click", ()=>applyCoord(char, n));
+    schips.appendChild(b);
+    const s = document.createElement("button");
+    s.className = "chip";
+    s.textContent = n + "にほぞん";
+    s.addEventListener("click", ()=>saveCoord(char, n));
+    schips.appendChild(s);
+  });
+  sec.appendChild(snm); sec.appendChild(schips);
+  box.appendChild(sec);
 }
 /* ===== お部屋の状態 ===== */
 const ROOM_KEY = "miraverse_room_v1";
