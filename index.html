@@ -101,6 +101,12 @@ header p{margin-top:6px;font-size:13px;color:#6a6390}
 .tstars i{position:absolute;font-style:normal;color:var(--gold);opacity:.75;animation:tfloat 5s ease-in-out infinite}
 @keyframes tfloat{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-14px) rotate(18deg)}}
 #toTitle{margin-top:8px}
+
+.cf-row{display:flex;gap:8px;align-items:flex-start;margin-bottom:7px;text-align:left}
+.cf-row label{flex:0 0 84px;font-size:13px;font-weight:800;color:var(--teal-d);padding-top:8px}
+.cf-in{flex:1;font-family:inherit;font-size:14.5px;padding:7px 10px;border:1.5px solid #d8d2c0;border-radius:10px;background:#fffdf7;color:var(--ink);min-width:0}
+.cf-off{opacity:.4;pointer-events:none}
+#cfOmakase.on{background:var(--teal);color:#fff;border-color:var(--teal-d)}
 footer{text-align:center;font-size:11px;color:#9a94b8;padding-bottom:26px}
 </style>
 </head>
@@ -249,6 +255,20 @@ window.addEventListener("load", function(){
 
 <div class="panel" id="customPanel">
 <h3>🌟 オリジナルキャラ</h3>
+<div id="createForm">
+<div class="cf-row"><label>なまえ</label><input class="cf-in" type="text" id="cfName" maxlength="12" placeholder="空らんなら おまかせ"></div>
+<div class="cf-row"><label>タイプ</label><select class="cf-in" id="cfType"><option value="ひと">ひと</option><option value="どうぶつ">どうぶつ</option><option value="ドラゴン">ドラゴン</option><option value="おまかせ">おまかせ</option></select></div>
+<div class="cf-row"><label>見た目・特徴</label><textarea class="cf-in" id="cfLook" rows="2" placeholder="例：水色の長い髪、星の髪飾り、元気な笑顔。空らんなら おまかせ"></textarea></div>
+<div class="cf-row"><label>おまかせ</label><button class="tab" id="cfOmakase" type="button">ぜんぶ おまかせ：OFF</button></div>
+<button class="tab" id="cfMake" type="button">依頼文を作る</button>
+<div id="cfOut" style="display:none;margin-top:8px">
+<textarea class="cf-in" id="cfText" rows="5" readonly style="width:100%"></textarea>
+<div style="margin-top:6px"><button class="tab" id="cfCopy" type="button">依頼文をコピーする</button></div>
+<div class="savemsg">コピーしたら、Museとのチャットの入力欄に貼って送ってください。キャラパックを作ってお渡しします。</div>
+</div>
+<div class="savemsg" id="cfMsg"></div>
+</div>
+<hr style="border:none;border-top:1.5px dashed #ddd5bd;margin:12px 0">
 <div id="customNone">
 <div class="savemsg">Museに作ってもらった「キャラパック」のファイルを読み込むと、あなたのキャラが仲間に加わります。</div>
 <button class="tab" id="importBtn">キャラパックを読み込む</button>
@@ -681,6 +701,36 @@ document.getElementById("deleteCustomBtn").addEventListener("click", ()=>{
   if(selected === "custom") selectChar("serena");
   refreshCustomPanel();
   customMsg("削除しました");
+});
+/* キャラ作りフォーム */
+let cfOmakaseOn = false;
+const cfOmakaseBtn = document.getElementById("cfOmakase");
+cfOmakaseBtn.addEventListener("click", ()=>{
+  cfOmakaseOn = !cfOmakaseOn;
+  cfOmakaseBtn.textContent = "ぜんぶ おまかせ：" + (cfOmakaseOn ? "ON" : "OFF");
+  cfOmakaseBtn.classList.toggle("on", cfOmakaseOn);
+  ["cfName","cfType","cfLook"].forEach(id=>document.getElementById(id).classList.toggle("cf-off", cfOmakaseOn));
+});
+document.getElementById("cfMake").addEventListener("click", ()=>{
+  let text;
+  if(cfOmakaseOn){
+    text = "【ミラヴァース キャラ作成依頼】\n名前・タイプ・見た目、すべておまかせで作ってください。\nこの内容でキャラパックをお願いします。";
+  } else {
+    const nm = document.getElementById("cfName").value.trim();
+    const tp = document.getElementById("cfType").value;
+    const lk = document.getElementById("cfLook").value.trim();
+    text = "【ミラヴァース キャラ作成依頼】\n名前：" + (nm || "おまかせ") + "\nタイプ：" + tp + "\n見た目：" + (lk || "おまかせ") + "\nこの内容でキャラパックをお願いします。";
+  }
+  document.getElementById("cfText").value = text;
+  document.getElementById("cfOut").style.display = "";
+  document.getElementById("cfMsg").textContent = "依頼文ができました。「依頼文をコピーする」を押してください。";
+});
+document.getElementById("cfCopy").addEventListener("click", ()=>{
+  const t = document.getElementById("cfText");
+  const done = ()=>{ document.getElementById("cfMsg").textContent = "コピーしました。チャットに貼って送ってください。"; };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t.value).then(done).catch(()=>{ t.select(); try{ document.execCommand("copy"); }catch(e){} done(); });
+  } else { t.select(); try{ document.execCommand("copy"); }catch(e){} done(); }
 });
 if(customPack && validPack(customPack)){ NAMES.custom = customPack.name; buildCustomWalker(); }
 else customPack = null;
