@@ -288,14 +288,16 @@ window.addEventListener("load", function(){
 <h3>🌟 オリジナルキャラ</h3>
 <div id="createForm">
 <div class="cf-row"><label>なまえ</label><input class="cf-in" type="text" id="cfName" maxlength="12" placeholder="空らんなら おまかせ"></div>
-<div class="cf-row"><label>タイプ</label><select class="cf-in" id="cfType"><option value="ひと">ひと</option><option value="どうぶつ">どうぶつ</option><option value="ドラゴン">ドラゴン</option><option value="おまかせ">おまかせ</option></select></div>
+<div class="cf-row"><label>タイプ</label><select class="cf-in" id="cfType"><option value="人型">人型</option><option value="動物型">動物型</option><option value="幻獣型">幻獣型</option><option value="精霊型">精霊型</option><option value="機械型">機械型</option><option value="混合・創作型">混合・創作型</option><option value="おまかせ">おまかせ</option></select></div>
 <div class="cf-row"><label>見た目・特徴</label><textarea class="cf-in" id="cfLook" rows="2" placeholder="例：水色の長い髪、星の髪飾り、元気な笑顔。空らんなら おまかせ"></textarea></div>
+<div class="cf-row"><label>性格</label><input class="cf-in" type="text" id="cfPerson" maxlength="20" placeholder="例：元気で明るい。空らんなら おまかせ"></div>
+<div class="savemsg">流れ：依頼文を送ると、まずデザイン案が2〜3案届きます。気に入った案を選ぶと、表情つきのキャラパックに仕上げてお渡しします。</div>
 <div class="cf-row"><label>おまかせ</label><button class="tab" id="cfOmakase" type="button">ぜんぶ おまかせ：OFF</button></div>
 <button class="tab" id="cfMake" type="button">依頼文を作る</button>
 <div id="cfOut" style="display:none;margin-top:8px">
 <textarea class="cf-in" id="cfText" rows="5" readonly style="width:100%"></textarea>
 <div style="margin-top:6px"><button class="tab" id="cfCopy" type="button">依頼文をコピーする</button></div>
-<div class="savemsg">コピーしたら、Museとのチャットの入力欄に貼って送ってください。キャラパックを作ってお渡しします。</div>
+<div class="savemsg">コピーしたら、Museとのチャットの入力欄に貼って送ってください。まずデザイン案（2〜3案）をお見せします。</div>
 </div>
 <div class="savemsg" id="cfMsg"></div>
 </div>
@@ -326,7 +328,8 @@ window.addEventListener("load", function(){
 ・<b>オリジナルキャラ</b>：Museが作ったキャラパックを読み込むと、自分のキャラが4人目の仲間に加わります（着せ替えは固定3体のみ）。<br>
 ・<b>Phase 2-A「通常姿とプロフィール」</b>：「📖 ずかん」ボタンで、選択中のキャラの通常姿イラストとプロフィールが見られます。前後のキャラへも切り替えられます。<br>
 ・<b>Phase 2-B「モーションと反応」</b>：キャラをタップすると驚いて喜びます。歩くときは進む向きに少し傾き、着地で軽く沈みます。仲間の近くに着くと向き合って挨拶し、待っている間も時々小さく動いたりつぶやいたりします。<br>
-・<b>Phase 2-C「着せ替えの拡張」</b>：装備中のアイテムは「いろ」で色ちがいに変えられます（元のいろ／あかみ／ひだまり／もり／そら／ゆめ）。いまの格好は「コーデ1〜3」に保存して、いつでも呼び出せます（色も一緒に保存されます）。
+・<b>Phase 2-C「着せ替えの拡張」</b>：装備中のアイテムは「いろ」で色ちがいに変えられます（元のいろ／あかみ／ひだまり／もり／そら／ゆめ）。いまの格好は「コーデ1〜3」に保存して、いつでも呼び出せます（色も一緒に保存されます）。<br>
+・<b>Phase 3「AI自由生成の拡張」</b>：キャラ作りのタイプが6種類（人型・動物型・幻獣型・精霊型・機械型・混合型）になり、「性格」も指定できるようになりました。依頼すると、まずデザイン案が2〜3案届きます。
 </div>
 <footer>MIRARIUM ― ミラリウム（まるごとアニメーション版）<br><button class="tab" id="toTitle">タイトル画面へ</button></footer>
 
@@ -901,17 +904,18 @@ cfOmakaseBtn.addEventListener("click", ()=>{
   cfOmakaseOn = !cfOmakaseOn;
   cfOmakaseBtn.textContent = "ぜんぶ おまかせ：" + (cfOmakaseOn ? "ON" : "OFF");
   cfOmakaseBtn.classList.toggle("on", cfOmakaseOn);
-  ["cfName","cfType","cfLook"].forEach(id=>document.getElementById(id).classList.toggle("cf-off", cfOmakaseOn));
+  ["cfName","cfType","cfLook","cfPerson"].forEach(id=>document.getElementById(id).classList.toggle("cf-off", cfOmakaseOn));
 });
 document.getElementById("cfMake").addEventListener("click", ()=>{
   let text;
   if(cfOmakaseOn){
-    text = "【ミラリウム キャラ作成依頼】\n名前・タイプ・見た目、すべておまかせで作ってください。\nこの内容でキャラパックをお願いします。";
+    text = "【ミラリウム キャラ作成依頼】\n名前・タイプ・見た目・性格、すべておまかせで作ってください。\nまずデザイン案を見せてください。";
   } else {
     const nm = document.getElementById("cfName").value.trim();
     const tp = document.getElementById("cfType").value;
     const lk = document.getElementById("cfLook").value.trim();
-    text = "【ミラリウム キャラ作成依頼】\n名前：" + (nm || "おまかせ") + "\nタイプ：" + tp + "\n見た目：" + (lk || "おまかせ") + "\nこの内容でキャラパックをお願いします。";
+    const ps = document.getElementById("cfPerson").value.trim();
+    text = "【ミラリウム キャラ作成依頼】\n名前：" + (nm || "おまかせ") + "\nタイプ：" + tp + "\n見た目：" + (lk || "おまかせ") + "\n性格：" + (ps || "おまかせ") + "\nまずデザイン案を見せてください。";
   }
   document.getElementById("cfText").value = text;
   document.getElementById("cfOut").style.display = "";
