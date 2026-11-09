@@ -92,6 +92,7 @@ header p{margin-top:6px;font-size:13px;color:#6a6390}
 .minimap .mm-view{position:absolute;border:1.5px solid #fff;background:rgba(255,255,255,.16);border-radius:3px}
 .minimap .mm-dot{position:absolute;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:#ff5d7e;border:1.5px solid #fff;box-shadow:0 0 6px rgba(255,93,126,.95);z-index:2}
 .minimap .mm-spot{position:absolute;width:5px;height:5px;margin:-2.5px 0 0 -2.5px;border-radius:50%;background:#ffd94d;box-shadow:0 0 5px #ffd94d}
+.minimap .mm-home{position:absolute;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:#fff;border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:10px;line-height:1;box-shadow:0 0 5px rgba(217,164,65,.85);z-index:1}
 .area-badge{position:absolute;top:10px;left:10px;z-index:960;pointer-events:none;background:rgba(255,253,247,.88);border:2px solid #f0e3bb;border-radius:999px;padding:4px 14px;font-size:13.5px;font-weight:900;color:var(--indigo);box-shadow:0 4px 12px rgba(43,58,103,.25)}
 #fade{position:fixed;inset:0;background:#232c52;opacity:0;pointer-events:none;transition:opacity .38s ease;z-index:2900}
 #fade.on{opacity:1}
@@ -101,7 +102,7 @@ header p{margin-top:6px;font-size:13px;color:#6a6390}
 @keyframes spotpulse{0%,100%{transform:translate(-50%,38%) scale(1)}50%{transform:translate(-50%,26%) scale(1.13)}}
 .home-sign{position:absolute;transform:translate(-50%,0);z-index:150;pointer-events:none;background:#fff8e6;border:2px solid #b08954;border-radius:8px;padding:2px 8px 3px;font-size:13px;font-weight:900;color:#7a5a28;white-space:nowrap;box-shadow:0 3px 8px rgba(43,58,103,.30)}
 .home-sign .st{color:var(--gold)}
-.home-btn{position:absolute;z-index:950;display:none;background:#fff;border:2.5px solid var(--gold);border-radius:999px;padding:9px 18px;font-size:15.5px;font-weight:900;color:var(--indigo);font-family:inherit;white-space:nowrap;cursor:pointer;box-shadow:0 6px 16px rgba(43,58,103,.35);animation:homebob 1.6s ease-in-out infinite}
+.home-btn{position:absolute;z-index:950;display:none;background:#fff;border:2px solid var(--gold);border-radius:999px;padding:7px 10px;font-size:12.5px;font-weight:900;color:var(--indigo);font-family:inherit;white-space:nowrap;cursor:pointer;box-shadow:0 6px 16px rgba(43,58,103,.35);animation:homebob 1.6s ease-in-out infinite}
 .home-btn.show{display:block}
 @keyframes homebob{0%,100%{margin-top:0}50%{margin-top:-5px}}
 .foundline{text-align:center;font-size:14px;font-weight:700;color:var(--indigo);line-height:2}
@@ -307,7 +308,7 @@ window.addEventListener("load", function(){
 </div>
 
 </div>
-<div class="field" id="field"><div class="world" id="fieldWorld"></div><div class="stk" id="stkField"><i></i></div><div class="minimap" id="mmField"><div class="mm-view"></div><div class="mm-dot"></div></div><div class="area-badge" id="areaBadge">星降る草原</div></div>
+<div class="field" id="field"><div class="world" id="fieldWorld"></div><div class="stk" id="stkField"><i></i></div><div class="minimap" id="mmField"><div class="mm-view"></div><div class="mm-dot"></div><div class="mm-home" style="display:none">🏠</div></div><div class="area-badge" id="areaBadge">星降る草原</div></div>
 <div class="field space" id="space"><div class="world space-w" id="spaceWorld"></div><div class="stk" id="stkSpace"><i></i></div><div class="minimap" id="mmSpace"><div class="mm-view"></div><div class="mm-dot"></div></div><div class="area-badge">アストラリア</div></div>
 </div>
 <p class="hint" id="hint">床をタップすると選んだ子がぴょんぴょん跳ねて移動します。家具をタップすると遊びに行き、家具をドラッグすると配置を変えられます。<br>キャラクターをタップしても「うごかす子」を切り替えられます。下のパネルで着せ替えもできます。</p>
@@ -927,6 +928,7 @@ homeBtn.addEventListener("click", e=>{
     homeId = homeZoneHouse.id;
     saveHome();
     placeHomeSign();
+    updateMinimap();             /* ミニマップの家のマークも新しい家へ移す */
     homeBtn.textContent = "🏠 お部屋に入る";
     bubble(selected, "この家が あなたの家に なった！", 2000);
   }
@@ -965,9 +967,20 @@ function placeHomeBtn(){
   const sr = stage.getBoundingClientRect(), wr = w.getBoundingClientRect();
   const cx = wr.left + wr.width / 2 - sr.left;
   const topY = wr.top - sr.top, botY = wr.bottom - sr.top;
-  const bw = homeBtn.offsetWidth || 170, bh = homeBtn.offsetHeight || 44;
-  homeBtn.style.left = Math.max(bw / 2 + 4, Math.min(sr.width - bw / 2 - 4, cx)) + "px";
-  if(topY - 10 - bh >= 4){ homeBtn.style.top = (topY - 10) + "px"; homeBtn.style.transform = "translate(-50%,-100%)"; }
+  const bw = homeBtn.offsetWidth || 124, bh = homeBtn.offsetHeight || 36;
+  const leftPx = Math.max(bw / 2 + 4, Math.min(sr.width - bw / 2 - 4, cx));
+  homeBtn.style.left = leftPx + "px";
+  let above = (topY - 10 - bh >= 4);
+  if(above){
+    /* 頭上に出すとミニマップやエリア名バッジ（どちらもボタンより前面）に隠れる場合は、足元側へ回す */
+    const bl = sr.left + leftPx - bw / 2, br = sr.left + leftPx + bw / 2, bt = sr.top + topY - 10 - bh;
+    for(const ov of [document.getElementById("mmField"), document.getElementById("areaBadge")]){
+      if(!ov || ov.offsetParent === null) continue;
+      const or_ = ov.getBoundingClientRect();
+      if(br > or_.left && bl < or_.right && bt < or_.bottom){ above = false; break; }
+    }
+  }
+  if(above){ homeBtn.style.top = (topY - 10) + "px"; homeBtn.style.transform = "translate(-50%,-100%)"; }
   else { homeBtn.style.top = (botY + 12) + "px"; homeBtn.style.transform = "translate(-50%,0)"; }
 }
 let view = "room";
@@ -1182,6 +1195,14 @@ function updateMinimap(){
   vw.style.width = (sw / ww * 100) + "%"; vw.style.height = (sh / wh * 100) + "%";
   const dot = mm.querySelector(".mm-dot");
   dot.style.left = p.x + "%"; dot.style.top = (100 - p.b) + "%";
+  /* 自分の家のマーク（町エリアのときだけ、選択中の家の玄関位置に出す） */
+  const hm = mm.querySelector(".mm-home");
+  if(hm){
+    if(view === "field" && area === "town"){
+      const hd = homeHouse().door;
+      hm.style.left = hd.x + "%"; hm.style.top = (100 - hd.b) + "%"; hm.style.display = "";
+    } else hm.style.display = "none";
+  }
   mm.querySelectorAll(".mm-spot").forEach(e=>e.remove());
   world.querySelectorAll(".spot").forEach(sp=>{
     const d = document.createElement("div"); d.className = "mm-spot";
