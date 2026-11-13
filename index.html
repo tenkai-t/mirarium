@@ -1106,9 +1106,9 @@ function checkHomeZone(){
   if(zone) placeHomeBtn();
 }
 /* ボタンをキャラの頭上に配置する。ステージ上端に収まらない場合は足元へ回し、常に全体が見えるようにする */
-function placeBtn(btn){
+function placeBtn(btn, stageEl){
   const w = document.querySelector('.walker[data-char="' + selected + '"]');
-  const stage = document.getElementById("field");
+  const stage = stageEl || document.getElementById("field");
   if(!w || !stage) return;
   const sr = stage.getBoundingClientRect(), wr = w.getBoundingClientRect();
   const cx = wr.left + wr.width / 2 - sr.left;
@@ -1120,7 +1120,7 @@ function placeBtn(btn){
   if(above){
     /* 頭上に出すとミニマップやエリア名バッジ（どちらもボタンより前面）に隠れる場合は、足元側へ回す */
     const bl = sr.left + leftPx - bw / 2, br = sr.left + leftPx + bw / 2, bt = sr.top + topY - 10 - bh;
-    for(const ov of [document.getElementById("mmField"), document.getElementById("areaBadge")]){
+    for(const ov of (stageEl ? [document.getElementById("mmSpace")] : [document.getElementById("mmField"), document.getElementById("areaBadge")])){
       if(!ov || ov.offsetParent === null) continue;
       const or_ = ov.getBoundingClientRect();
       if(br > or_.left && bl < or_.right && bt < or_.bottom){ above = false; break; }
@@ -1509,6 +1509,72 @@ function checkShipZone(){
     } else shipBox.classList.remove("show");
   }
   if(zone) placeBtn(shipBox);
+}
+
+/* ===== 星の門：雪の水晶高原の星の門 ⇔ アストラリア（ロードマップ③、2026-11-13） =====
+   高原タイル中央、天文台の台地の下に描かれた石のアーチ（星の門。絵の実測で開口部は
+   x 43〜54%、足元 b≈50）の前にゾーンを置き、「🌟 星の門をくぐる」で うちゅうビュー
+   （アストラリア）へ。アストラリア側の戻り口は中央の星座の魔法陣（絵の実測で中心
+   (50.5, 57)、グリッド byte=0 の石畳）で、「🌟 高原へもどる」で門の前へ正確に戻る。
+   ツリーハウス等と同じゾーンUI方式で、遷移は switchView の gatePos 引数に乗せる
+   （タブ切替の挙動には影響しない）。戻り先は固定座標でメモリ上のみ、新しい保存
+   キーは作らない。アストラリア内の発見スポット・歩行・loot は従来どおり。 */
+const GATE_DOOR = { x:47.5, b:48.5 };
+const GATE_RX = 3.2, GATE_RB = 2.4;
+const GATE_RETURN = { x:47.5, b:47.0 };
+const SG_CIRCLE = { x:50.5, b:55.0 };
+const SG_RX = 4.2, SG_RB = 3.4;
+const SG_ARRIVAL = { x:50.5, b:52.5 };
+let gateZone = null;
+const gateBtnF = document.createElement("button");
+gateBtnF.className = "home-btn"; gateBtnF.type = "button"; gateBtnF.textContent = "🌟 星の門をくぐる";
+document.getElementById("field").appendChild(gateBtnF);
+gateBtnF.addEventListener("pointerdown", e=>e.stopPropagation());
+gateBtnF.addEventListener("pointerup", e=>e.stopPropagation());
+gateBtnF.addEventListener("click", e=>{ e.stopPropagation(); if(gateZone === "enter") gateTravel("space"); });
+const gateBtnS = document.createElement("button");
+gateBtnS.className = "home-btn"; gateBtnS.type = "button"; gateBtnS.textContent = "🌟 高原へもどる";
+document.getElementById("space").appendChild(gateBtnS);
+gateBtnS.addEventListener("pointerdown", e=>e.stopPropagation());
+gateBtnS.addEventListener("pointerup", e=>e.stopPropagation());
+gateBtnS.addEventListener("click", e=>{ e.stopPropagation(); if(gateZone === "exit") gateTravel("plateau"); });
+function gateTravel(dest){
+  if(transitioning) return;
+  transitioning = true;
+  gateZone = null; gateBtnF.classList.remove("show"); gateBtnS.classList.remove("show");
+  joy.active = false; joy.x = 0; joy.y = 0; joyOrigin = null;
+  const stk = joyStk(); if(stk) stk.style.display = "none";
+  const fade = document.getElementById("fade");
+  fade.classList.add("on");
+  setTimeout(()=>{
+    if(dest === "space" && view === "field"){ transitioning = false; switchView("space", { x: SG_ARRIVAL.x, b: SG_ARRIVAL.b }); }
+    else if(dest === "plateau" && view === "space"){ transitioning = false; switchView("field", "plateau"); }
+    transitioning = true;
+    saveExplore();
+    setTimeout(()=>{ fade.classList.remove("on"); transitioning = false; }, 80);
+  }, 400);
+}
+function checkGateZone(){
+  let zone = null;
+  if(!transitioning){
+    const p = explore.chars[selected];
+    if(p){
+      if(view === "field" && area === "plateau"){
+        const dx = (p.x - GATE_DOOR.x) / GATE_RX, db = (p.b - GATE_DOOR.b) / GATE_RB;
+        if(dx * dx + db * db <= 1) zone = "enter";
+      } else if(view === "space"){
+        const dx = (p.x - SG_CIRCLE.x) / SG_RX, db = (p.b - SG_CIRCLE.b) / SG_RB;
+        if(dx * dx + db * db <= 1) zone = "exit";
+      }
+    }
+  }
+  if(zone !== gateZone){
+    gateZone = zone;
+    gateBtnF.classList.toggle("show", zone === "enter");
+    gateBtnS.classList.toggle("show", zone === "exit");
+  }
+  if(zone === "enter") placeBtn(gateBtnF);
+  else if(zone === "exit") placeBtn(gateBtnS, document.getElementById("space"));
 }
 
 /* ===== 道の案内板 (全9エリア・主要な分岐とゲート付近、2026-11-10) =====
@@ -2084,10 +2150,10 @@ function checkSignZone(){
 let view = "room";
 const HINTS = {
   room: "画面をドラッグするとスティックが出て、その方向へ歩けます（キーボードの矢印・WASDでも歩けます）。床をタップしても移動できます。家具をタップすると遊びに行き、家具をドラッグすると配置を変えられます。<br>キャラクターをタップしても「うごかす子」を切り替えられます。下のパネルで着せ替えもできます。",
-  field: "画面をドラッグするとスティックが出て、その方向へ歩けます（キーボードの矢印・WASDでも歩けます）。池・木・岩には入れません。道をたどって探検しましょう。キラキラ光る場所まで歩くと、アイテムを見つけられます。<br>見つけたものは下のパネルに記録されます。お部屋の着せ替えもそのまま反映されます。道の出口まで歩くと、となりのエリアへ移動できます。<br>星あかりの町にある ★の表札の家は あなたの家です。玄関前に立つと、お部屋に入れます。ほかの家の玄関前に立つと、その家をあなたの家にできます。おそとに出ると、いつも自分の家の前からスタートします。<br>ツリーハウスの森では、ツリーハウスのはしごの前に立つと「のぼる」ボタンが出て、中に入れます。<br>森の巨木のうろの扉の前に立つと、図書館に入れます。本棚では豆知識が読めて、見つけた物の本も並んでいきます。<br>道の案内板の前に立つと「しらべる」ボタンが出て、その場所から各方角へ進むとどこへ行けるか調べられます。",
-  space: "画面をドラッグするとスティックが出て、その方向へ歩けます。宇宙の浮島マップを探検して（島の外には出られません）、キラキラ光る場所まで歩くと、アストラリアでしか見つからないアイテムを見つけられます。<br>集めたものは「📚 はっけん図鑑」で確認できます。"
+  field: "画面をドラッグするとスティックが出て、その方向へ歩けます（キーボードの矢印・WASDでも歩けます）。池・木・岩には入れません。道をたどって探検しましょう。キラキラ光る場所まで歩くと、アイテムを見つけられます。<br>見つけたものは下のパネルに記録されます。お部屋の着せ替えもそのまま反映されます。道の出口まで歩くと、となりのエリアへ移動できます。<br>星あかりの町にある ★の表札の家は あなたの家です。玄関前に立つと、お部屋に入れます。ほかの家の玄関前に立つと、その家をあなたの家にできます。おそとに出ると、いつも自分の家の前からスタートします。<br>ツリーハウスの森では、ツリーハウスのはしごの前に立つと「のぼる」ボタンが出て、中に入れます。<br>森の巨木のうろの扉の前に立つと、図書館に入れます。本棚では豆知識が読めて、見つけた物の本も並んでいきます。<br>道の案内板の前に立つと「しらべる」ボタンが出て、その場所から各方角へ進むとどこへ行けるか調べられます。<br>雪の水晶高原の星の門の前に立つと「星の門をくぐる」ボタンが出て、アストラリアへ行けます。",
+  space: "画面をドラッグするとスティックが出て、その方向へ歩けます。宇宙の浮島マップを探検して（島の外には出られません）、キラキラ光る場所まで歩くと、アストラリアでしか見つからないアイテムを見つけられます。<br>集めたものは「📚 はっけん図鑑」で確認できます。<br>中央の魔法陣の上に立つと「高原へもどる」ボタンが出て、雪の水晶高原の星の門へ戻れます。"
 };
-function switchView(v){
+function switchView(v, gatePos){
   if(view === v || transitioning) return;
   view = v;
   refreshResetBtn();
@@ -2101,14 +2167,26 @@ function switchView(v){
   document.getElementById("explorePanel").style.display = (v !== "room") ? "" : "none";
   document.getElementById("hint").innerHTML = HINTS[v];
   if(v === "field"){
-    /* おそとのスタート位置は、選んでいる自分の家の玄関前（星あかりの町）から */
-    area = "town";
-    explore.chars = explore.pos.town;
-    const hp = explore.chars[selected], hh = homeHouse();
-    if(hp){ hp.x = hh.door.x; hp.b = hh.door.b; }
-    applyAreaVisual();
+    if(gatePos === "plateau"){
+      /* 星の門からの帰還：高原の門の前へ正確に戻る（タブ切替の町スタートとは別扱い） */
+      area = "plateau";
+      explore.chars = explore.pos.plateau;
+      const gp = explore.chars[selected];
+      if(gp){ gp.x = GATE_RETURN.x; gp.b = GATE_RETURN.b; }
+      applyAreaVisual();
+    } else {
+      /* おそとのスタート位置は、選んでいる自分の家の玄関前（星あかりの町）から */
+      area = "town";
+      explore.chars = explore.pos.town;
+      const hp = explore.chars[selected], hh = homeHouse();
+      if(hp){ hp.x = hh.door.x; hp.b = hh.door.b; }
+      applyAreaVisual();
+    }
   }
-  else if(v === "space"){ explore.chars = explore.pos.space; }
+  else if(v === "space"){
+    explore.chars = explore.pos.space;
+    if(gatePos){ const sp = explore.chars[selected]; if(sp){ sp.x = gatePos.x; sp.b = gatePos.b; } }
+  }
   const store = (v === "room") ? roomData.chars : explore.chars;
   for(const c in store) placeChar(c, store);
   if(v !== "room"){
@@ -2473,6 +2551,7 @@ function walkLoop(t){
   checkShelfZone();
   checkSignZone();
   checkShipZone();
+  checkGateZone();
   let ix = joy.x, iy = -joy.y;
   if(keysDown.has("arrowleft") || keysDown.has("a")) ix -= 1;
   if(keysDown.has("arrowright") || keysDown.has("d")) ix += 1;
