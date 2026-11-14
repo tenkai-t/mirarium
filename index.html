@@ -7,6 +7,11 @@
 <style>
 :root{--cream:#faf6eb;--teal:#2ea8a0;--teal-d:#1f7a74;--gold:#d9a441;--coral:#f2827f;--indigo:#2b3a67;--ink:#3a3455}
 *{margin:0;padding:0;box-sizing:border-box}
+/* 長押しの画像メニュー（"写真"に保存／コピー）と文字の選択を抑止する（ゲーム操作の妨げになるため）。
+   入力欄（なまえ・見た目・性格・依頼文）だけは今までどおり選択・編集・コピーができる */
+body{-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
+img{-webkit-touch-callout:none}
+input,textarea,select{user-select:text;-webkit-user-select:text;-webkit-touch-callout:default}
 body{font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP",sans-serif;background:linear-gradient(180deg,#fdfaf1 0%,#eefaf6 55%,#e8f1fb 100%);color:var(--ink);min-height:100vh}
 header{text-align:center;padding:26px 16px 6px}
 header h1{font-size:clamp(22px,5vw,34px);letter-spacing:.08em;color:var(--indigo)}
@@ -360,7 +365,7 @@ window.addEventListener("load", function(){
 <button class="tab fl" data-floor="4">よるの絨毯</button>
 <button class="tab fl" data-floor="5">ミントモザイク</button>
 </div></div>
-<div class="decohint">家具はドラッグで移動（マス目にピタッとそろいます）、タップで回転します。壁紙と天井はセットで、床は別々にここで変えられます</div>
+<div class="decohint">家具はドラッグで移動（マス目にピタッとそろいます）、タップで回転します。壁紙と天井はセットで、床は別々にここで変えられます。2本指でピンチすると、部屋を拡大・縮小できます</div>
 </div>
 
 <div class="roomwrap">
@@ -450,7 +455,7 @@ window.addEventListener("load", function(){
 <div class="field" id="field"><div class="world" id="fieldWorld"></div><div class="stk" id="stkField"><i></i></div><div class="minimap" id="mmField"><div class="mm-view"></div><div class="mm-dot"></div><div class="mm-home" style="display:none">⭐</div></div><div class="area-badge" id="areaBadge">星降る草原</div></div>
 <div class="field space" id="space"><div class="world space-w" id="spaceWorld"></div><div class="stk" id="stkSpace"><i></i></div><div class="minimap" id="mmSpace"><div class="mm-view"></div><div class="mm-dot"></div></div><div class="area-badge">アストラリア</div></div>
 </div>
-<p class="hint" id="hint">画面をドラッグするとスティックが出て、その方向へ歩けます（キーボードの矢印・WASDでも歩けます）。床をタップしても移動できます。家具をタップすると遊びに行けます。クローゼットをタップすると着せ替えが開きます。「🛋️ 模様替え」モードでは、家具をドラッグで移動（マス目にそろいます）、タップで回転、壁紙と天井（セット）と床の変更ができます。<br>キャラクターをタップしても「うごかす子」を切り替えられます。</p>
+<p class="hint" id="hint">画面をドラッグするとスティックが出て、その方向へ歩けます（キーボードの矢印・WASDでも歩けます）。床をタップしても移動できます。家具をタップすると遊びに行けます。クローゼットをタップすると着せ替えが開きます。「🛋️ 模様替え」モードでは、家具をドラッグで移動（マス目にそろいます）、タップで回転、2本指ピンチで部屋の拡大・縮小、壁紙と天井（セット）と床の変更ができます。<br>キャラクターをタップしても「うごかす子」を切り替えられます。</p>
 
 <div class="panel" id="outfitPanel" style="display:none">
 <h3>👗 着せ替え ― <span id="outfitCharName">セレナ</span></h3>
@@ -986,6 +991,12 @@ function moveTo(char, x, b, done){
     if(done) done();
   }, dur+30);
 }
+/* 長押し・右クリックのメニュー抑止：画像の保存メニューや文字のコピーメニューが
+   ゲーム操作の妨げになるためページ全体で出さない。入力欄の編集メニューは今までどおり出す */
+document.addEventListener("contextmenu", e=>{
+  if(e.target && e.target.closest && e.target.closest("input, textarea, select")) return;
+  e.preventDefault();
+});
 /* ===== おへやの入力：ドラッグでスティック歩行、短いタップは従来どおりタップ移動 ===== */
 const stkRoom = document.getElementById("stkRoom");
 let roomTap = null;
@@ -1135,9 +1146,24 @@ function interact(id){
   svg.appendChild(poly);
   gl.appendChild(svg);
 })();
+/* ===== 模様替えのピンチズーム =====
+   全体表示（0.5倍）を最小として、2本指ピンチで最大2倍（1.0倍）まで拡大でき、
+   拡大中は表示範囲をパンできる。s は倍率、tx/ty は roomworld 左上原点の表示オフセット(px) */
+const DECO_ZOOM_MIN = 0.5, DECO_ZOOM_MAX = 1.0;
+let decoZoom = { s: DECO_ZOOM_MIN, tx: 0, ty: 0 };
+const decoPointers = new Map();
+let decoPinch = null;
+let curFurnDrag = null;
+function resetDecoZoom(){
+  decoZoom = { s: DECO_ZOOM_MIN, tx: 0, ty: 0 };
+  decoPointers.clear(); decoPinch = null;
+  roomWorld.style.transition = "";
+}
 let roomMode = "walk";
 function setRoomMode(m){
   roomMode = m;
+  if(m === "deco") resetDecoZoom();
+  else { decoPointers.clear(); decoPinch = null; roomWorld.style.transition = ""; }
   room.classList.toggle("deco", m === "deco");
   document.getElementById("modeWalkBtn").classList.toggle("on", m === "walk");
   document.getElementById("modeDecoBtn").classList.toggle("on", m === "deco");
@@ -1173,15 +1199,18 @@ document.querySelectorAll(".furn").forEach(el=>{
   let drag = null;
   el.addEventListener("pointerdown", e=>{
     e.stopPropagation();
+    if(decoPinch) return;
     const rect = roomWorld.getBoundingClientRect();
     drag = { sx:e.clientX, sy:e.clientY, moved:false,
       ox: roomData.furn[id].x - (e.clientX-rect.left)/rect.width*100,
-      ob: roomData.furn[id].b - (1-(e.clientY-rect.top)/rect.height)*100 };
+      ob: roomData.furn[id].b - (1-(e.clientY-rect.top)/rect.height)*100,
+      fid: id, fx: roomData.furn[id].x, fb: roomData.furn[id].b, dead: false };
+    if(roomMode === "deco") curFurnDrag = drag;
     try{ el.setPointerCapture(e.pointerId); }catch(err){}
     if(roomMode === "deco") document.querySelectorAll(".furn").forEach(o=>o.classList.toggle("deco-sel", o === el));
   });
   el.addEventListener("pointermove", e=>{
-    if(!drag) return;
+    if(!drag || drag.dead) return;
     if(Math.hypot(e.clientX-drag.sx, e.clientY-drag.sy) > 7) drag.moved = true;
     if(!drag.moved || roomMode !== "deco") return;
     const rect = roomWorld.getBoundingClientRect();
@@ -1193,14 +1222,76 @@ document.querySelectorAll(".furn").forEach(el=>{
   });
   el.addEventListener("pointerup", e=>{
     if(!drag) return;
-    const wasDrag = drag.moved; drag = null;
+    const d = drag; drag = null;
+    if(curFurnDrag === d) curFurnDrag = null;
+    if(d.dead) return;
+    const wasDrag = d.moved;
     if(roomMode === "deco"){
       if(wasDrag){ saveRoom(); bubble(selected, "家具を うごかした！", 1200); }
       else rotateFurn(id);
     }
     else if(!wasDrag && FURN_KIND[id] !== "rug") interact(id);
   });
+  el.addEventListener("pointercancel", ()=>{
+    if(curFurnDrag === drag) curFurnDrag = null;
+    drag = null;
+  });
 });
+/* 模様替えのピンチ操作：room のキャプチャ段階で指を数え、2本目が触れたら進行中の
+   家具ドラッグを取り消して（家具は元の位置に戻る）ピンチへ切り替える。
+   ピンチ中は1本指のドラッグ・回転は起きない。拡大したまま指を離しても倍率は保たれ、
+   最小まで縮めると全体表示に戻る */
+function cancelFurnDragForPinch(){
+  if(!curFurnDrag) return;
+  curFurnDrag.dead = true;
+  const f = roomData.furn[curFurnDrag.fid];
+  if(f){ f.x = curFurnDrag.fx; f.b = curFurnDrag.fb; placeFurn(curFurnDrag.fid); }
+  curFurnDrag = null;
+}
+function decoPinchGeom(){
+  const rect = room.getBoundingClientRect();
+  const pts = [...decoPointers.values()];
+  return { x: (pts[0].x + pts[1].x) / 2 - rect.left, y: (pts[0].y + pts[1].y) / 2 - rect.top,
+           d: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) };
+}
+room.addEventListener("pointerdown", e=>{
+  if(view !== "room" || roomMode !== "deco") return;
+  decoPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if(decoPointers.size === 2){
+    cancelFurnDragForPinch();
+    const c = decoPinchGeom();
+    decoPinch = { d0: Math.max(1, c.d), s0: decoZoom.s,
+      wx: (c.x - decoZoom.tx) / decoZoom.s, wy: (c.y - decoZoom.ty) / decoZoom.s };
+    roomWorld.style.transition = "none";
+  }
+}, true);
+room.addEventListener("pointermove", e=>{
+  if(!decoPointers.has(e.pointerId)) return;
+  decoPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if(!decoPinch || decoPointers.size !== 2) return;
+  const c = decoPinchGeom();
+  const s = Math.max(DECO_ZOOM_MIN, Math.min(DECO_ZOOM_MAX, decoPinch.s0 * c.d / decoPinch.d0));
+  if(s <= DECO_ZOOM_MIN){
+    /* 最小まで戻したら全体表示に復帰させる */
+    decoZoom.s = DECO_ZOOM_MIN;
+    decoZoom.tx = (room.clientWidth - DECO_ZOOM_MIN * roomWorld.clientWidth) / 2;
+    decoZoom.ty = (room.clientHeight - DECO_ZOOM_MIN * roomWorld.clientHeight) / 2;
+  } else {
+    decoZoom.s = s;
+    decoZoom.tx = c.x - s * decoPinch.wx;
+    decoZoom.ty = c.y - s * decoPinch.wy;
+  }
+  updateRoomCamera();
+}, true);
+function decoPtrEnd(e){
+  if(!decoPointers.delete(e.pointerId)) return;
+  if(decoPointers.size < 2 && decoPinch){
+    decoPinch = null;
+    roomWorld.style.transition = "";
+  }
+}
+room.addEventListener("pointerup", decoPtrEnd, true);
+room.addEventListener("pointercancel", decoPtrEnd, true);
 document.getElementById("resetBtn").addEventListener("click", ()=>{
   /* 配置リセットはおへや専用。おそと・うちゅうではボタン自体を無効化しているが、
      万一クリックが届いてもここで弾く（過去に、おそとで実行されると全キャラへ
@@ -3046,7 +3137,7 @@ function checkSignZone(){
 
 let view = "room";
 const HINTS = {
-  room: "画面をドラッグするとスティックが出て、その方向へ歩けます（キーボードの矢印・WASDでも歩けます）。床をタップしても移動できます。家具をタップすると遊びに行けます。クローゼットをタップすると着せ替えが開きます。「🛋️ 模様替え」モードでは、家具をドラッグで移動（マス目にそろいます）、タップで回転、壁紙と天井（セット）と床の変更ができます。<br>キャラクターをタップしても「うごかす子」を切り替えられます。",
+  room: "画面をドラッグするとスティックが出て、その方向へ歩けます（キーボードの矢印・WASDでも歩けます）。床をタップしても移動できます。家具をタップすると遊びに行けます。クローゼットをタップすると着せ替えが開きます。「🛋️ 模様替え」モードでは、家具をドラッグで移動（マス目にそろいます）、タップで回転、2本指ピンチで部屋の拡大・縮小、壁紙と天井（セット）と床の変更ができます。<br>キャラクターをタップしても「うごかす子」を切り替えられます。",
   field: "画面をドラッグするとスティックが出て、その方向へ歩けます（キーボードの矢印・WASDでも歩けます）。池・木・岩には入れません。道をたどって探検しましょう。キラキラ光る場所まで歩くと、アイテムを見つけられます。<br>見つけたものは下のパネルに記録されます。お部屋の着せ替えもそのまま反映されます。道の出口まで歩くと、となりのエリアへ移動できます。<br>星あかりの町にある ★の表札の家は あなたの家です。玄関前に立つと、お部屋に入れます。ほかの家の玄関前に立つと、その家をあなたの家にできます。おそとに出ると、いつも自分の家の前からスタートします。<br>ツリーハウスの森では、ツリーハウスのはしごの前に立つと「のぼる」ボタンが出て、中に入れます。<br>森の巨木のうろの扉の前に立つと、図書館に入れます。本棚では豆知識が読めて、見つけた物の本も並んでいきます。<br>道の案内板の前に立つと「しらべる」ボタンが出て、その場所から各方角へ進むとどこへ行けるか調べられます。<br>雪の水晶高原の星の門の前に立つと「星の門をくぐる」ボタンが出て、アストラリアへ行けます。<br>花畑の水車小屋の扉の前に立つと、中に入れます。大きな歯車と石臼の前で「しらべる」を押すと、粉ひきの豆知識が読めます。<br>雪の水晶高原の天文台の扉の前に立つと、中に入れます。階段を上がったドームの望遠鏡を「のぞく」と、星座の説明が読めます。<br>星砂の砂漠の星の遺跡の内側に立つと、遺跡の中に入れます。壁の星座の順番に、星のタイルを踏んでみましょう。<br>月の港の市場の北にある倉庫の扉の前に立つと、中に入れます。荷札を調べると、船が運ぶ物の豆知識が読めます。<br>星降る丘の牧場の納屋の扉の前に立つと、中に入れます。はしごを上がると干し草ロフトに出られます。仕切りのそばや干し草の山のそばで「しらべる」を押すと、牧場の豆知識が読めます。",
   space: "画面をドラッグするとスティックが出て、その方向へ歩けます。宇宙の浮島マップを探検して（島の外には出られません）、キラキラ光る場所まで歩くと、アストラリアでしか見つからないアイテムを見つけられます。<br>集めたものは「📚 はっけん図鑑」で確認できます。<br>中央の魔法陣の上に立つと「高原へもどる」ボタンが出て、雪の水晶高原の星の門へ戻れます。"
 };
@@ -3423,11 +3514,18 @@ const ROOM_WALK_SCALE = 0.93;
 function updateRoomCamera(){
   if(view !== "room") return;
   if(roomMode === "deco"){
-    /* 模様替え中は部屋全体が一度に見える縮小表示（横200%を 1/2 倍し、
-       上下中央に置く）。座標変換は getBoundingClientRect 基準なので、
-       ドラッグ・回転の計算はこの表示のままで一致する。 */
-    roomWorld.style.transformOrigin = "";
-    roomWorld.style.transform = "translate(" + (-(roomWorld.clientWidth - room.clientWidth) / 2) + "px,0px) scale(0.5)";
+    /* 模様替え中は全体表示（0.5倍）を基本に、2本指ピンチで最大2倍まで拡大できる
+       （decoZoom が倍率と表示オフセットを持つ）。座標変換は getBoundingClientRect
+       基準なので、ドラッグ・回転の計算はどの倍率でもそのまま一致する */
+    const sw = room.clientWidth, sh = room.clientHeight, ww = roomWorld.clientWidth, wh = roomWorld.clientHeight;
+    if(!sw || !ww) return;
+    const s = Math.max(DECO_ZOOM_MIN, Math.min(DECO_ZOOM_MAX, decoZoom.s)); decoZoom.s = s;
+    let tx, ty;
+    if(s * ww >= sw) tx = Math.max(sw - s * ww, Math.min(0, decoZoom.tx)); else tx = (sw - s * ww) / 2;
+    if(s * wh >= sh) ty = Math.max(sh - s * wh, Math.min(0, decoZoom.ty)); else ty = (sh - s * wh) / 2;
+    decoZoom.tx = tx; decoZoom.ty = ty;
+    roomWorld.style.transformOrigin = "0 0";
+    roomWorld.style.transform = "translate(" + tx + "px," + ty + "px) scale(" + s + ")";
     return;
   }
   const p = roomData.chars[selected]; if(!p) return;
@@ -3669,6 +3767,44 @@ importFile.addEventListener("change", ()=>{
 });
 buildAllCustomWalkers();
 refreshCustomPanel();
+
+/* ===== キャラ作りフォーム：依頼文の生成 =====
+   空らんの項目は「おまかせ」になる（入力欄のプレースホルダの約束どおり）。
+   「ぜんぶ おまかせ」が ON のときは、入力があっても全項目をおまかせにする。
+   文面は LOG の仕様どおり「【ミラリウム キャラ作成依頼】」で始まり
+   「まずデザイン案を見せてください。」で終わる */
+let cfAllOmakase = false;
+const cfOmakaseBtn = document.getElementById("cfOmakase");
+function cfMsg(t){ document.getElementById("cfMsg").textContent = t; }
+cfOmakaseBtn.addEventListener("click", ()=>{
+  cfAllOmakase = !cfAllOmakase;
+  cfOmakaseBtn.textContent = "ぜんぶ おまかせ：" + (cfAllOmakase ? "ON" : "OFF");
+  cfOmakaseBtn.classList.toggle("on", cfAllOmakase);
+});
+document.getElementById("cfMake").addEventListener("click", ()=>{
+  const val = id => document.getElementById(id).value.trim();
+  const pick = v => (cfAllOmakase || !v) ? "おまかせ" : v;
+  const text = "【ミラリウム キャラ作成依頼】\n"
+    + "名前：" + pick(val("cfName")) + "\n"
+    + "タイプ：" + (cfAllOmakase ? "おまかせ" : document.getElementById("cfType").value) + "\n"
+    + "見た目：" + pick(val("cfLook")) + "\n"
+    + "性格：" + pick(val("cfPerson")) + "\n"
+    + "まずデザイン案を見せてください。";
+  document.getElementById("cfText").value = text;
+  document.getElementById("cfOut").style.display = "";
+  cfMsg("依頼文を作りました。「依頼文をコピーする」を押して、チャットに貼ってください");
+});
+document.getElementById("cfCopy").addEventListener("click", ()=>{
+  const ta = document.getElementById("cfText");
+  const done = ()=>cfMsg("コピーしました！チャットの入力欄に貼って送ってください");
+  const fallback = ()=>{
+    ta.focus(); ta.select();
+    try{ if(document.execCommand("copy")){ done(); return; } }catch(e){}
+    cfMsg("コピーできませんでした。依頼文の文字を選んで、手動でコピーしてください");
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, fallback);
+  else fallback();
+});
 
 /* ===== はっけん図鑑 ===== */
 function openCodex(){
