@@ -450,12 +450,13 @@ window.addEventListener("load", function(){
 <div class="field" id="field"><div class="world" id="fieldWorld"></div><div class="stk" id="stkField"><i></i></div><div class="minimap" id="mmField"><div class="mm-view"></div><div class="mm-dot"></div><div class="mm-home" style="display:none">⭐</div></div><div class="area-badge" id="areaBadge">星降る草原</div></div>
 <div class="field space" id="space"><div class="world space-w" id="spaceWorld"></div><div class="stk" id="stkSpace"><i></i></div><div class="minimap" id="mmSpace"><div class="mm-view"></div><div class="mm-dot"></div></div><div class="area-badge">アストラリア</div></div>
 </div>
-<p class="hint" id="hint">画面をドラッグするとスティックが出て、その方向へ歩けます（キーボードの矢印・WASDでも歩けます）。床をタップしても移動できます。家具をタップすると遊びに行けます。クローゼットをタップすると着せ替えが開きます。「🛋️ 模様替え」モードでは、家具をドラッグで移動（マス目にそろいます）、タップで回転、壁紙と天井（セット）と床の変更ができます。<br>キャラクターをタップしても「うごかす子」を切り替えられます。下のパネルで着せ替えもできます。</p>
+<p class="hint" id="hint">画面をドラッグするとスティックが出て、その方向へ歩けます（キーボードの矢印・WASDでも歩けます）。床をタップしても移動できます。家具をタップすると遊びに行けます。クローゼットをタップすると着せ替えが開きます。「🛋️ 模様替え」モードでは、家具をドラッグで移動（マス目にそろいます）、タップで回転、壁紙と天井（セット）と床の変更ができます。<br>キャラクターをタップしても「うごかす子」を切り替えられます。</p>
 
-<div class="panel" id="outfitPanel">
+<div class="panel" id="outfitPanel" style="display:none">
 <h3>👗 着せ替え ― <span id="outfitCharName">セレナ</span></h3>
 <div id="outfitSlots"></div>
 <div class="savemsg" id="saveMsg"></div>
+<div style="text-align:center;margin-top:10px"><button class="tab" id="outfitClose" type="button">とじる</button></div>
 </div>
 
 <div class="panel" id="explorePanel" style="display:none">
@@ -1073,15 +1074,22 @@ const REACT = {
       bubble(char, roomData.night ? "あかりを けした" : "あかりを つけた！", 1800);
   } }
 };
-/* クローゼットから着せ替えパネルを開く（表示中のキャラの着せ替えがそのまま使える） */
+/* 着せ替えパネルは、おへや（あるくモード）でクローゼットをタップしたときだけ開く。
+   下部への常駐表示はせず、開くまでは隠しておく（表示中のキャラの着せ替えがそのまま使える） */
 function openOutfitPanel(){
   const p = document.getElementById("outfitPanel");
   if(!p) return;
+  p.style.display = "";
   p.scrollIntoView({ behavior:"smooth", block:"start" });
   p.classList.remove("flash");
   void p.offsetWidth;
   p.classList.add("flash");
 }
+function closeOutfitPanel(){
+  const p = document.getElementById("outfitPanel");
+  if(p) p.style.display = "none";
+}
+document.getElementById("outfitClose").addEventListener("click", closeOutfitPanel);
 function interact(id){
   const f = roomData.furn[id];
   let ax = f.x, ab = Math.max(ROOM_BOUNDS.bMin + 0.4, f.b - 2.5);
@@ -3038,7 +3046,7 @@ function checkSignZone(){
 
 let view = "room";
 const HINTS = {
-  room: "画面をドラッグするとスティックが出て、その方向へ歩けます（キーボードの矢印・WASDでも歩けます）。床をタップしても移動できます。家具をタップすると遊びに行けます。クローゼットをタップすると着せ替えが開きます。「🛋️ 模様替え」モードでは、家具をドラッグで移動（マス目にそろいます）、タップで回転、壁紙と天井（セット）と床の変更ができます。<br>キャラクターをタップしても「うごかす子」を切り替えられます。下のパネルで着せ替えもできます。",
+  room: "画面をドラッグするとスティックが出て、その方向へ歩けます（キーボードの矢印・WASDでも歩けます）。床をタップしても移動できます。家具をタップすると遊びに行けます。クローゼットをタップすると着せ替えが開きます。「🛋️ 模様替え」モードでは、家具をドラッグで移動（マス目にそろいます）、タップで回転、壁紙と天井（セット）と床の変更ができます。<br>キャラクターをタップしても「うごかす子」を切り替えられます。",
   field: "画面をドラッグするとスティックが出て、その方向へ歩けます（キーボードの矢印・WASDでも歩けます）。池・木・岩には入れません。道をたどって探検しましょう。キラキラ光る場所まで歩くと、アイテムを見つけられます。<br>見つけたものは下のパネルに記録されます。お部屋の着せ替えもそのまま反映されます。道の出口まで歩くと、となりのエリアへ移動できます。<br>星あかりの町にある ★の表札の家は あなたの家です。玄関前に立つと、お部屋に入れます。ほかの家の玄関前に立つと、その家をあなたの家にできます。おそとに出ると、いつも自分の家の前からスタートします。<br>ツリーハウスの森では、ツリーハウスのはしごの前に立つと「のぼる」ボタンが出て、中に入れます。<br>森の巨木のうろの扉の前に立つと、図書館に入れます。本棚では豆知識が読めて、見つけた物の本も並んでいきます。<br>道の案内板の前に立つと「しらべる」ボタンが出て、その場所から各方角へ進むとどこへ行けるか調べられます。<br>雪の水晶高原の星の門の前に立つと「星の門をくぐる」ボタンが出て、アストラリアへ行けます。<br>花畑の水車小屋の扉の前に立つと、中に入れます。大きな歯車と石臼の前で「しらべる」を押すと、粉ひきの豆知識が読めます。<br>雪の水晶高原の天文台の扉の前に立つと、中に入れます。階段を上がったドームの望遠鏡を「のぞく」と、星座の説明が読めます。<br>星砂の砂漠の星の遺跡の内側に立つと、遺跡の中に入れます。壁の星座の順番に、星のタイルを踏んでみましょう。<br>月の港の市場の北にある倉庫の扉の前に立つと、中に入れます。荷札を調べると、船が運ぶ物の豆知識が読めます。<br>星降る丘の牧場の納屋の扉の前に立つと、中に入れます。はしごを上がると干し草ロフトに出られます。仕切りのそばや干し草の山のそばで「しらべる」を押すと、牧場の豆知識が読めます。",
   space: "画面をドラッグするとスティックが出て、その方向へ歩けます。宇宙の浮島マップを探検して（島の外には出られません）、キラキラ光る場所まで歩くと、アストラリアでしか見つからないアイテムを見つけられます。<br>集めたものは「📚 はっけん図鑑」で確認できます。<br>中央の魔法陣の上に立つと「高原へもどる」ボタンが出て、雪の水晶高原の星の門へ戻れます。"
 };
@@ -3054,6 +3062,7 @@ function switchView(v, gatePos){
   field.classList.toggle("on", v === "field");
   space.classList.toggle("on", v === "space");
   document.getElementById("explorePanel").style.display = (v !== "room") ? "" : "none";
+  document.getElementById("outfitPanel").style.display = "none";
   document.getElementById("roomModeBar").style.display = (v === "room") ? "" : "none";
   document.getElementById("decoPanel").style.display = (v === "room" && roomMode === "deco") ? "" : "none";
   document.getElementById("hint").innerHTML = HINTS[v];
