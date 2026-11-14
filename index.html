@@ -195,7 +195,6 @@ body.tlock{position:fixed;left:0;right:0;width:100%;height:100%;overflow:hidden;
 .cf-row label{flex:0 0 84px;font-size:13px;font-weight:800;color:var(--teal-d);padding-top:8px}
 .cf-in{flex:1;font-family:inherit;font-size:14.5px;padding:7px 10px;border:1.5px solid #d8d2c0;border-radius:10px;background:#fffdf7;color:var(--ink);min-width:0}
 .cf-off{opacity:.4;pointer-events:none}
-#cfOmakase.on{background:var(--teal);color:#fff;border-color:var(--teal-d)}
 
 .prof{position:fixed;inset:0;z-index:2500;display:none;align-items:center;justify-content:center;background:rgba(35,42,80,.45);padding:16px}
 .prof.open{display:flex}
@@ -481,7 +480,6 @@ window.addEventListener("load", function(){
 <div class="cf-row"><label>見た目・特徴</label><textarea class="cf-in" id="cfLook" rows="2" placeholder="例：水色の長い髪、星の髪飾り、元気な笑顔。空らんなら おまかせ"></textarea></div>
 <div class="cf-row"><label>性格</label><input class="cf-in" type="text" id="cfPerson" maxlength="20" placeholder="例：元気で明るい。空らんなら おまかせ"></div>
 <div class="savemsg">流れ：依頼文を送ると、まずデザイン案が2〜3案届きます。気に入った案を選ぶと、表情つきのキャラパックに仕上げてお渡しします。</div>
-<div class="cf-row"><label>おまかせ</label><button class="tab" id="cfOmakase" type="button">ぜんぶ おまかせ：OFF</button></div>
 <button class="tab" id="cfMake" type="button">依頼文を作る</button>
 <div id="cfOut" style="display:none;margin-top:8px">
 <textarea class="cf-in" id="cfText" rows="5" readonly style="width:100%"></textarea>
@@ -3817,23 +3815,15 @@ refreshCustomPanel();
 
 /* ===== キャラ作りフォーム：依頼文の生成 =====
    空らんの項目は「おまかせ」になる（入力欄のプレースホルダの約束どおり）。
-   「ぜんぶ おまかせ」が ON のときは、入力があっても全項目をおまかせにする。
    文面は LOG の仕様どおり「【ミラリウム キャラ作成依頼】」で始まり
    「まずデザイン案を見せてください。」で終わる */
-let cfAllOmakase = false;
-const cfOmakaseBtn = document.getElementById("cfOmakase");
 function cfMsg(t){ document.getElementById("cfMsg").textContent = t; }
-cfOmakaseBtn.addEventListener("click", ()=>{
-  cfAllOmakase = !cfAllOmakase;
-  cfOmakaseBtn.textContent = "ぜんぶ おまかせ：" + (cfAllOmakase ? "ON" : "OFF");
-  cfOmakaseBtn.classList.toggle("on", cfAllOmakase);
-});
 document.getElementById("cfMake").addEventListener("click", ()=>{
   const val = id => document.getElementById(id).value.trim();
-  const pick = v => (cfAllOmakase || !v) ? "おまかせ" : v;
+  const pick = v => !v ? "おまかせ" : v;
   const text = "【ミラリウム キャラ作成依頼】\n"
     + "名前：" + pick(val("cfName")) + "\n"
-    + "タイプ：" + (cfAllOmakase ? "おまかせ" : document.getElementById("cfType").value) + "\n"
+    + "タイプ：" + document.getElementById("cfType").value + "\n"
     + "見た目：" + pick(val("cfLook")) + "\n"
     + "性格：" + pick(val("cfPerson")) + "\n"
     + "まずデザイン案を見せてください。";
